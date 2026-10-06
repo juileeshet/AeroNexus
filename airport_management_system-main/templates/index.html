@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="row align-items-center g-5">
+        <div class="col-lg-6">
+            <span class="hero-eyebrow"><i class="bi bi-broadcast"></i> 6 Indian cities &middot; 5 international hubs &middot; 10 airline partners</span>
+            <h1>Book flights across India and beyond, seat by seat.</h1>
+            <p class="lead">Search real fares, pick your exact seat on an interactive map, and manage every booking from one dashboard &mdash; domestic hops and long-haul in the same place.</p>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Book a flight</a>
+                <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg">Create free account</a>
+            </div>
+            <div class="hero-routes">
+                <span class="route-chip">MUMBAI &rarr; DELHI</span>
+                <span class="route-chip">DELHI &rarr; DUBAI</span>
+                <span class="route-chip">BANGALORE &rarr; SINGAPORE</span>
+                <span class="route-chip">MUMBAI &rarr; LONDON</span>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="route-panel">
+                <div class="route-panel-label">
+                    <span>DEPARTURE</span>
+                    <span>ARRIVAL</span>
+                </div>
+                <div class="route-panel-cities">
+                    <span>BOM</span>
+                    <span>DXB</span>
+                </div>
+                <svg viewBox="0 0 400 90" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flight path from Mumbai to Dubai">
+                    <path d="M 12 70 Q 200 -10 388 70" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2" stroke-dasharray="1 10" stroke-linecap="round"/>
+                    <circle cx="12" cy="70" r="5" fill="#E2A33B"/>
+                    <circle cx="388" cy="70" r="5" fill="#E2A33B"/>
+                    <text x="55" y="41" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="15" transform="rotate(-35 55 41)">&#9992;</text>
+                </svg>
+                <div class="route-panel-meta">
+                    <span>Flight <strong>EK&#8209;501</strong> &middot; Emirates</span>
+                    <span><strong>2h 15m</strong> &middot; Non-stop</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5 pt-3">
+    <div class="col-md-4">
+        <div class="card feature-card h-100">
+            <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
+            <h5>Secure by design</h5>
+            <p class="text-secondary mb-0">Passwords are hashed, sessions are server-side, and every booking is tied to your account only.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card feature-card h-100">
+            <div class="feature-icon"><i class="bi bi-geo-alt"></i></div>
+            <h5>Live flight tracking</h5>
+            <p class="text-secondary mb-0">Follow active flights on a real map, from takeoff to landing, with live status updates.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card feature-card h-100">
+            <div class="feature-icon"><i class="bi bi-grid-3x3-gap"></i></div>
+            <h5>Pick your own seat</h5>
+            <p class="text-secondary mb-0">A real seat map for First, Business and Economy &mdash; see exactly what's free before you book.</p>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5 pt-3">
+    <div class="col-12">
+        <h2 class="section-heading">How booking works</h2>
+        <p class="section-subtext mb-4">Three steps, start to finish.</p>
+    </div>
+    <div class="col-md-4">
+        <div class="step">
+            <h5>Search flights</h5>
+            <p>Browse the live schedule across domestic and international routes, or filter by city.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="step">
+            <h5>Choose your seat</h5>
+            <p>Tap a seat on the map to lock in First, Business or Economy, and see the fare update instantly.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="step">
+            <h5>Fly</h5>
+            <p>Your ticket lands in your dashboard, ready to view, print, or track on the day.</p>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5 pt-3 mb-4">
+    <div class="col-12">
+        <h2 class="section-heading">Trending destinations</h2>
+        <p class="section-subtext mb-4">A few places worth planning a trip around &mdash; check the flights page for current fares and availability.</p>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-4">
+        <div class="card destination-card">
+            <img src="{{ url_for('static', filename='images/destination1.jpg') }}" class="card-img-top" alt="New York City skyline">
+            <div class="card-body">
+                <h5 class="card-title">New York</h5>
+                <p class="card-text">United States</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-4">
+        <div class="card destination-card">
+            <img src="{{ url_for('static', filename='images/destination2.jpg') }}" class="card-img-top" alt="London skyline at dusk">
+            <div class="card-body">
+                <h5 class="card-title">London</h5>
+                <p class="card-text">United Kingdom &middot; direct from Mumbai</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-4">
+        <div class="card destination-card">
+            <img src="{{ url_for('static', filename='images/destination3.jpg') }}" class="card-img-top" alt="Tokyo city street at night">
+            <div class="card-body">
+                <h5 class="card-title">Tokyo</h5>
+                <p class="card-text">Japan</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-4">
+        <div class="card destination-card">
+            <img src="{{ url_for('static', filename='images/destination4.jpg') }}" class="card-img-top" alt="Paris rooftops at sunset">
+            <div class="card-body">
+                <h5 class="card-title">Paris</h5>
+                <p class="card-text">France</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

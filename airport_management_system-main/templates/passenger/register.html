@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="auth-form">
+        <div class="auth-icon"><i class="bi bi-person-plus"></i></div>
+        <h2 class="text-center mb-1">Passenger Registration</h2>
+        <p class="text-center text-secondary mb-4">Create your account to start booking.</p>
+        <form method="POST" action="{{ url_for('register') }}" onsubmit="return validateForm('register-form')" id="register-form">
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" name="username" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+                <div class="progress mt-2">
+                    <div id="password-strength" class="progress-bar" role="progressbar"></div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="name" class="form-label">Full Name</label>
+                <input type="text" class="form-control" id="name" name="name" required>
+            </div>
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" name="email" required>
+            </div>
+            <div class="mb-3">
+                <label for="phone" class="form-label">Phone Number</label>
+                <input type="tel" class="form-control" id="phone" name="phone" required>
+            </div>
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary">Register</button>
+            </div>
+        </form>
+        <div class="text-center mt-3">
+            <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

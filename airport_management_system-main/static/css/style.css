@@ -1,0 +1,990 @@
+/* ============================================================
+   SkyLedger design tokens
+   A booking system for a real route network: Indian domestic
+   (Mumbai, Delhi, Bangalore, Chennai, Hyderabad, Kolkata) plus
+   Gulf & long-haul international (Dubai, Doha, Singapore,
+   London, Frankfurt). Palette and type are chosen for that
+   subject, not a generic SaaS default.
+   ============================================================ */
+
+:root {
+    --ink: #0F2340;
+    --ink-soft: #1B3A63;
+    --sky: #1B63D6;
+    --sky-deep: #12468F;
+    --sky-tint: #EAF1FC;
+    --amber: #E2A33B;
+    --amber-deep: #B87F22;
+    --amber-tint: #FBF0DD;
+    --cloud: #F5F7FB;
+    --paper: #FFFFFF;
+    --mist: #E1E6F0;
+    --slate: #5C6B85;
+    --slate-light: #8593AB;
+    --success: #1E8E5A;
+    --success-tint: #E4F5ED;
+    --danger: #D64550;
+    --danger-tint: #FBE7E8;
+    --warning: #B87F22;
+    --warning-tint: #FBF0DD;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
+    --shadow-sm: 0 1px 2px rgba(15, 35, 64, 0.06);
+    --shadow-md: 0 8px 24px rgba(15, 35, 64, 0.10);
+    --shadow-lg: 0 20px 48px rgba(15, 35, 64, 0.16);
+    --font-display: 'Space Grotesk', 'Segoe UI', sans-serif;
+    --font-body: 'Inter', 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-body);
+    color: var(--ink);
+    background-color: var(--cloud);
+    -webkit-font-smoothing: antialiased;
+}
+
+main, .container {
+    flex: 1 0 auto;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    color: var(--ink);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+a {
+    color: var(--sky);
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--sky-deep);
+}
+
+p {
+    line-height: 1.65;
+}
+
+::selection {
+    background: var(--amber-tint);
+    color: var(--ink);
+}
+
+:focus-visible {
+    outline: 2px solid var(--sky);
+    outline-offset: 2px;
+}
+
+/* Data tokens: flight numbers, seat codes, ticket numbers, IATA-style
+   airport codes. Monospace is used deliberately here, and only here,
+   to read like real itinerary data rather than decoration. */
+.code, .flight-code, .route-code, .ticket-number {
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ============================================================
+   Navbar
+   ============================================================ */
+
+.navbar {
+    background: var(--ink) !important;
+    padding-top: 0.9rem;
+    padding-bottom: 0.9rem;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.navbar .navbar-brand {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: #fff !important;
+}
+
+.navbar .navbar-brand .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--sky), var(--sky-deep));
+    color: #fff;
+    font-size: 1rem;
+    transform: rotate(-8deg);
+}
+
+.navbar-nav .nav-link {
+    color: rgba(255, 255, 255, 0.78) !important;
+    font-weight: 500;
+    padding: 0.5rem 0.9rem !important;
+    border-radius: var(--radius-sm);
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link:focus-visible {
+    color: #fff !important;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.navbar-nav .nav-link.active {
+    color: #fff !important;
+}
+
+.navbar-text {
+    color: rgba(255, 255, 255, 0.85) !important;
+    font-size: 0.92rem;
+}
+
+.dropdown-menu {
+    border: none;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: 0.4rem;
+}
+
+.dropdown-item {
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.8rem;
+    font-size: 0.92rem;
+}
+
+.dropdown-item:hover, .dropdown-item:focus {
+    background-color: var(--sky-tint);
+    color: var(--sky-deep);
+}
+
+.navbar-toggler {
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.navbar-toggler:focus {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+
+.btn {
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 1.15rem;
+    letter-spacing: 0.01em;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-lg {
+    padding: 0.75rem 1.6rem;
+    border-radius: var(--radius-md);
+}
+
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-sm);
+}
+
+.btn-primary {
+    background-color: var(--sky);
+    border-color: var(--sky);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background-color: var(--sky-deep);
+    border-color: var(--sky-deep);
+}
+
+.btn-primary:not(:disabled):not(.disabled):active {
+    background-color: var(--sky-deep);
+    border-color: var(--sky-deep);
+}
+
+.btn-outline-primary {
+    color: var(--sky);
+    border-color: var(--sky);
+}
+
+.btn-outline-primary:hover, .btn-outline-primary.active {
+    background-color: var(--sky);
+    border-color: var(--sky);
+}
+
+.btn-secondary {
+    background-color: var(--slate);
+    border-color: var(--slate);
+}
+
+.btn-secondary:hover {
+    background-color: var(--ink-soft);
+    border-color: var(--ink-soft);
+}
+
+.btn-outline-secondary {
+    color: var(--slate);
+    border-color: var(--mist);
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--slate);
+    border-color: var(--slate);
+}
+
+.btn-success { background-color: var(--success); border-color: var(--success); }
+.btn-outline-success { color: var(--success); border-color: var(--success); }
+.btn-outline-success:hover { background-color: var(--success); border-color: var(--success); }
+.btn-danger { background-color: var(--danger); border-color: var(--danger); }
+.btn-outline-danger { color: var(--danger); border-color: var(--danger); }
+.btn-outline-danger:hover { background-color: var(--danger); border-color: var(--danger); }
+.btn-warning { background-color: var(--amber); border-color: var(--amber); color: var(--ink); }
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn-lg:hover, .btn-primary.btn-lg:hover {
+    box-shadow: var(--shadow-md);
+}
+
+/* ============================================================
+   Layout helpers
+   ============================================================ */
+
+.container {
+    max-width: 1180px;
+}
+
+.min-vh-75 {
+    min-height: 65vh;
+}
+
+.section-heading {
+    font-size: 1.8rem;
+    margin-bottom: 0.4rem;
+}
+
+.section-subtext {
+    color: var(--slate);
+    max-width: 60ch;
+}
+
+/* ============================================================
+   Hero (landing page)
+   ============================================================ */
+
+.hero {
+    padding: 3.5rem 0 3rem;
+}
+
+.hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--sky-deep);
+    background: var(--sky-tint);
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 1.1rem;
+}
+
+.hero h1 {
+    font-size: clamp(2.1rem, 4vw, 3rem);
+    line-height: 1.12;
+    margin-bottom: 1.1rem;
+}
+
+.hero .lead {
+    color: var(--slate);
+    font-size: 1.12rem;
+    max-width: 46ch;
+    margin-bottom: 1.75rem;
+}
+
+.hero-routes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.75rem;
+}
+
+.hero-routes .route-chip {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--slate);
+    background: var(--paper);
+    border: 1px solid var(--mist);
+    padding: 0.32rem 0.7rem;
+    border-radius: var(--radius-pill);
+}
+
+/* Decorative flight-path panel: a stylised great-circle route
+   between two cities, grounded in the app's own network rather
+   than a stock illustration. */
+.route-panel {
+    background: linear-gradient(160deg, var(--ink) 0%, var(--ink-soft) 100%);
+    border-radius: var(--radius-lg);
+    padding: 2.25rem 1.75rem;
+    color: #fff;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    overflow: hidden;
+}
+
+.route-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle at 85% 15%, rgba(255,255,255,0.08), transparent 45%);
+    pointer-events: none;
+}
+
+.route-panel .route-panel-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 0.25rem;
+}
+
+.route-panel .route-panel-cities {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 1.25rem;
+}
+
+.route-panel svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.route-panel .route-panel-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1.1rem;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.72);
+}
+
+.route-panel .route-panel-meta strong {
+    color: #fff;
+    font-family: var(--font-mono);
+    font-weight: 500;
+}
+
+/* Three-step process (a genuinely sequential flow, so numbering
+   is meaningful rather than decorative). */
+.steps {
+    counter-reset: step;
+    margin-top: 1rem;
+}
+
+.step {
+    position: relative;
+    padding-left: 3.1rem;
+}
+
+.step::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background: var(--sky-tint);
+    color: var(--sky-deep);
+    font-family: var(--font-display);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.step h5 {
+    margin-bottom: 0.35rem;
+}
+
+.step p {
+    color: var(--slate);
+    font-size: 0.95rem;
+    margin-bottom: 0;
+}
+
+/* ============================================================
+   Cards — general
+   ============================================================ */
+
+.card {
+    border: 1px solid var(--mist);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.card-header {
+    background-color: var(--paper);
+    border-bottom: 1px solid var(--mist);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+    font-family: var(--font-display);
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+}
+
+.card-body {
+    padding: 1.25rem;
+}
+
+/* Feature cards on the landing page: no border, flat surface,
+   distinguished from data cards elsewhere in the app. */
+.feature-card {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    text-align: left;
+}
+
+.feature-card:hover {
+    box-shadow: none;
+    transform: none;
+}
+
+.feature-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    background: var(--sky-tint);
+    color: var(--sky-deep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+}
+
+/* Destination cards: photo with a navy gradient footer, not a
+   generic bordered Bootstrap card. */
+.destination-card {
+    border: none;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    position: relative;
+    box-shadow: var(--shadow-sm);
+}
+
+.destination-card .card-img-top {
+    height: 220px;
+    object-fit: cover;
+}
+
+.destination-card .card-body {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 1rem 1.1rem;
+    background: linear-gradient(0deg, rgba(15,35,64,0.92) 0%, rgba(15,35,64,0.05) 100%);
+    color: #fff;
+}
+
+.destination-card .card-title {
+    font-family: var(--font-display);
+    margin-bottom: 0.15rem;
+}
+
+.destination-card .card-text {
+    color: rgba(255,255,255,0.82);
+    font-size: 0.85rem;
+    margin-bottom: 0;
+}
+
+/* ============================================================
+   Auth forms
+   ============================================================ */
+
+.form-container {
+    max-width: 460px;
+    margin: 1.5rem auto;
+    padding: 0;
+}
+
+.auth-form {
+    background-color: var(--paper);
+    padding: 2.25rem 2rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--mist);
+    box-shadow: var(--shadow-md);
+}
+
+.auth-form h2 {
+    font-size: 1.5rem;
+}
+
+.auth-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--sky-tint);
+    color: var(--sky-deep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin: 0 auto 1.1rem;
+}
+
+.auth-form .form-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+}
+
+.form-control, .form-select {
+    border: 1px solid var(--mist);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.85rem;
+    font-size: 0.95rem;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--sky);
+    box-shadow: 0 0 0 3px var(--sky-tint);
+}
+
+.form-control.is-invalid {
+    border-color: var(--danger);
+}
+
+/* ============================================================
+   Flight cards (browse / manage flights)
+   ============================================================ */
+
+.flight-card {
+    margin-bottom: 0;
+}
+
+.flight-card .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.flight-card .badge.bg-primary {
+    background-color: var(--sky-tint) !important;
+    color: var(--sky-deep) !important;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    padding: 0.4rem 0.65rem;
+}
+
+.route-line {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0.85rem 0;
+}
+
+.route-line .route-endpoint {
+    text-align: center;
+}
+
+.route-line .route-endpoint .route-city {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--ink);
+    white-space: nowrap;
+}
+
+.route-line .route-endpoint .route-time {
+    font-size: 0.78rem;
+    color: var(--slate);
+}
+
+.route-line .route-path {
+    flex: 1;
+    position: relative;
+    height: 1px;
+    background: var(--mist);
+    margin: 0 0.25rem;
+}
+
+.route-line .route-path::before,
+.route-line .route-path::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--slate-light);
+    transform: translateY(-50%);
+}
+
+.route-line .route-path::before { left: 0; }
+.route-line .route-path::after { right: 0; }
+
+.route-line .route-path .plane-glyph {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(90deg);
+    color: var(--sky);
+    font-size: 0.95rem;
+    background: var(--paper);
+    padding: 0 0.15rem;
+}
+
+.price-tag {
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--amber-tint);
+    border-radius: var(--radius-sm);
+    padding: 0.3rem 0.7rem;
+    display: inline-block;
+}
+
+/* ============================================================
+   Tickets — boarding-pass styling
+   ============================================================ */
+
+.ticket {
+    background-color: var(--paper);
+    border: 1px solid var(--mist);
+    border-radius: var(--radius-md);
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.ticket-header {
+    border-bottom: 1px solid var(--mist);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+}
+
+.ticket-card {
+    overflow: visible;
+}
+
+.ticket-card .card-header {
+    background: var(--ink);
+    color: #fff;
+    border-bottom: none;
+}
+
+.ticket-card .card-header .badge {
+    font-weight: 600;
+}
+
+.ticket-card .card-header h5 {
+    color: #fff;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 1rem;
+}
+
+.ticket-stub-divider {
+    position: relative;
+    border: none;
+    border-top: 2px dashed var(--mist);
+    margin: 1.1rem -1.25rem 1.1rem;
+}
+
+.ticket-stub-divider::before,
+.ticket-stub-divider::after {
+    content: '';
+    position: absolute;
+    top: -10px;
+    width: 20px;
+    height: 20px;
+    background: var(--cloud);
+    border-radius: 50%;
+}
+
+.ticket-stub-divider::before { left: -10px; }
+.ticket-stub-divider::after { right: -10px; }
+
+.ticket-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.9rem;
+}
+
+/* ============================================================
+   Dashboards
+   ============================================================ */
+
+.dashboard-stats {
+    background: transparent;
+    padding: 0;
+    margin-bottom: 1.75rem;
+}
+
+.dashboard-stats .row {
+    --bs-gutter-x: 1.25rem;
+}
+
+.stat-card {
+    text-align: left;
+    padding: 1.35rem 1.5rem;
+    background-color: var(--paper);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--mist);
+    border-left: 4px solid var(--sky);
+    box-shadow: var(--shadow-sm);
+    height: 100%;
+}
+
+.stat-card h3 {
+    font-size: 0.92rem;
+    text-transform: none;
+    color: var(--slate);
+    font-family: var(--font-body);
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.stat-card .h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+}
+
+.stat-card:nth-child(2) { border-left-color: var(--success); }
+.stat-card:nth-child(3) { border-left-color: var(--amber); }
+.stat-card:nth-child(4) { border-left-color: var(--danger); }
+
+.activity-feed .activity-item {
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--mist);
+}
+
+.activity-feed .activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-feed .activity-item span {
+    font-size: 0.78rem;
+}
+
+.activity-feed .activity-item p {
+    margin: 0.15rem 0 0;
+}
+
+.health-item {
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--mist);
+}
+
+.health-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+/* ============================================================
+   Seat map
+   ============================================================ */
+
+#seat-map h5 {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    text-transform: none;
+    margin-bottom: 0.85rem;
+}
+
+.seat {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    width: 42px;
+    height: 38px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+}
+
+.seat-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--slate);
+}
+
+.seat-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+}
+
+.swatch-available { background: var(--paper); border: 1.5px solid var(--sky); }
+.swatch-selected { background: var(--sky); }
+.swatch-occupied { background: var(--mist); }
+
+/* ============================================================
+   Badges, alerts, tables
+   ============================================================ */
+
+.badge {
+    font-weight: 600;
+    padding: 0.4em 0.7em;
+    border-radius: var(--radius-pill);
+}
+
+.bg-success { background-color: var(--success) !important; }
+.bg-warning { background-color: var(--amber) !important; color: var(--ink) !important; }
+.bg-info { background-color: var(--sky-tint) !important; color: var(--sky-deep) !important; }
+.bg-primary { background-color: var(--sky) !important; }
+.bg-danger { background-color: var(--danger) !important; }
+
+.text-primary { color: var(--sky) !important; }
+.text-success { color: var(--success) !important; }
+.text-warning { color: var(--amber-deep) !important; }
+.text-danger { color: var(--danger) !important; }
+.text-secondary { color: var(--slate) !important; }
+.text-muted { color: var(--slate-light) !important; }
+
+.alert {
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+}
+
+.alert-danger { background-color: var(--danger-tint); color: #8C2A32; border-color: #F3C7CA; }
+.alert-success { background-color: var(--success-tint); color: #145C3B; border-color: #BEE6D2; }
+.alert-info { background-color: var(--sky-tint); color: var(--sky-deep); border-color: #C9DDF7; }
+.alert-warning { background-color: var(--warning-tint); color: var(--amber-deep); border-color: #F2DCB0; }
+
+.table {
+    --bs-table-hover-bg: var(--sky-tint);
+}
+
+.table thead th {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    color: var(--slate);
+    font-weight: 600;
+    border-bottom-width: 1px;
+}
+
+.modal-content {
+    border: none;
+    border-radius: var(--radius-lg);
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--mist);
+}
+
+.modal-header .modal-title {
+    font-family: var(--font-display);
+}
+
+.modal-footer {
+    border-top: 1px solid var(--mist);
+}
+
+/* ============================================================
+   Footer
+   ============================================================ */
+
+.footer {
+    margin-top: auto;
+    background: var(--ink) !important;
+    color: rgba(255,255,255,0.65);
+    padding: 2.25rem 0 !important;
+}
+
+.footer .footer-brand {
+    font-family: var(--font-display);
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 0.4rem;
+}
+
+.footer a {
+    color: rgba(255,255,255,0.72);
+}
+
+.footer a:hover {
+    color: #fff;
+}
+
+.footer .footer-links {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    font-size: 0.88rem;
+}
+
+.footer hr {
+    border-color: rgba(255,255,255,0.12);
+    margin: 1.5rem 0 1.25rem;
+}
+
+.footer .footer-fine {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.5);
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+    .hero {
+        padding: 2.25rem 0 1.5rem;
+        text-align: left;
+    }
+
+    .route-panel {
+        margin-top: 2rem;
+    }
+
+    .step {
+        margin-bottom: 1.5rem;
+    }
+}

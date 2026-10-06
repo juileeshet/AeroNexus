@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Login{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="auth-form">
+        <div class="auth-icon"><i class="bi bi-shield-lock"></i></div>
+        <h2 class="text-center mb-1">Admin Login</h2>
+        <p class="text-center text-secondary mb-4">Sign in to the admin console.</p>
+        {% if message %}
+        <div class="alert alert-danger">{{ message }}</div>
+        {% endif %}
+        <form method="POST" action="{{ url_for('admin_login') }}" onsubmit="return validateForm('admin-login-form')" id="admin-login-form">
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" name="username" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+            </div>
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary">Login</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
