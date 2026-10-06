@@ -1,56 +1,98 @@
-# Flight Booking System
+# AeroNexus – Airport Management System
 
-A web-based flight booking system built with Flask that allows passengers to book flights, staff to manage flights, and admins to manage users.
+A full-stack web-based Airport Management System built with Flask and SQLite for managing flights, passenger bookings, staff operations, administrative workflows, and real-time flight tracking.
 
 ## Features
 
-- User Management:
-  - Admin can manage users (add, delete, reset passwords)
-  - Staff can manage flights
-  - Passengers can book flights and manage their profiles
+### Role-Based Access Control
+- Passenger, Staff, and Admin user roles
+- Role-based authentication and session management
+- Separate dashboards and workflows for each role
+- Secure password hashing using bcrypt
 
-- Flight Management:
-  - Search and filter flights
-  - Visual seat selection with different classes
-  - Dynamic pricing based on seat class
-  - Real-time seat availability
+### Passenger Features
+- User registration and authentication
+- Flight search and filtering
+- Flight booking
+- Seat selection
+- Multiple travel classes
+- Dynamic seat availability
+- Booking history
+- Profile management
 
-- Dashboard:
-  - Admin: User management and statistics
-  - Staff: Flight management
-  - Passenger: Booking history and profile
+### Staff Features
+- Add flights
+- Edit flight information
+- Delete flights
+- Manage flight schedules and pricing
+- View available flights
 
-## Setup Instructions
+### Admin Features
+- User management
+- Add and delete users
+- Password reset
+- User role management
+- Booking and revenue analytics
+- Database backup and restore
+- System statistics
 
-1. Create a virtual environment (recommended):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+### Flight Tracking
+- Interactive live flight map using Leaflet.js
+- OpenStreetMap integration
+- Real-time active flight tracking
+- Flight progress calculation
+- Flight status detection:
+  - Scheduled
+  - In Air
+  - Landed
+- Automatic flight data refresh every 10 seconds
+- Interactive flight markers and routes
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Analytics
+- Daily booking statistics
+- Weekly booking statistics
+- Monthly booking statistics
+- Revenue tracking
+- Booking trend analysis
 
-3. Run the application:
-   ```bash
-   python main.py
-   ```
+## Technology Stack
 
-4. Access the application:
-   - Open http://localhost:5000 in your browser
-   - Default accounts:
-     - Admin: username=admin, password=admin123
-     - Staff: username=staff, password=staff123
-     - Passenger: username=alen, password=alen123
+- **Backend:** Python, Flask
+- **Frontend:** HTML5, CSS3, JavaScript, Jinja2
+- **Database:** SQLite
+- **Authentication:** Flask-Session, bcrypt
+- **Mapping:** Leaflet.js, OpenStreetMap
+- **APIs:** Flask JSON endpoints
+- **Libraries:** python-dateutil
+- **Development:** Git, GitHub
+
+## Project Metrics
+
+- 23 Flask routes
+- 3 user roles
+- 3 role-specific dashboards
+- 3 analytics time periods
+- 11 mapped airport locations
+- 10-second flight-tracking refresh interval
 
 ## Project Structure
 
-- `main.py`: Main application file
-- `templates/`: HTML templates
-  - `admin_dashboard/`: Admin interface
-  - `passenger_dashboard/`: Passenger interface
-  - `employee_dashboard/`: Staff interface
-- `static/`: Static files (CSS, JS, images)
-- `database.db`: SQLite database
+```text
+airport_management_system-main/
+│
+├── main.py
+├── database.db
+├── configs.json
+├── requirements.txt
+│
+├── templates/
+│   ├── admin/
+│   ├── employee/
+│   ├── passenger/
+│   ├── admin_dashboard/
+│   ├── employee_dashboard/
+│   └── passenger_dashboard/
+│
+├── static/
+│
+└── backups/
