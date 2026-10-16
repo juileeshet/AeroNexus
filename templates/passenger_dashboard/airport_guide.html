@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Gate {{ f.gate }} guide{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-3 gap-2">
+    <div>
+        <a href="{{ url_for('boarding_pass', t_id=t.t_id) }}" class="small text-secondary"><i class="bi bi-arrow-left"></i> Boarding pass</a>
+        <h2 class="mb-0 mt-1">Your way to Gate {{ f.gate }}</h2>
+        <p class="text-secondary mb-0">{{ src.name }} ({{ src.iata }}) &middot; Terminal {{ f.terminal }} &middot; {{ f.flight_number }} departs {{ dep.strftime('%H:%M') }}</p>
+    </div>
+    <div class="gate-card">
+        <span class="bp-label">Gate</span>
+        <strong class="code">{{ f.gate }}</strong>
+        <small>boarding {{ boarding_time }}</small>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Terminal route</span>
+        <small class="text-secondary">Schematic, not to scale</small>
+    </div>
+    <div class="card-body">
+        <div class="map-scroll">
+        <svg class="terminal-map" viewBox="0 0 960 360" role="img" aria-label="Route from the entrance through security to gate {{ f.gate }}">
+            <rect class="tm-landside" x="20" y="150" width="280" height="120" rx="10"/>
+            <text class="tm-zone" x="30" y="170">Departures hall</text>
+            <rect class="tm-security" x="296" y="150" width="14" height="120" rx="3"/>
+            <text class="tm-zone" x="303" y="284" text-anchor="middle">Security</text>
+            <rect class="tm-concourse" x="320" y="170" width="620" height="80" rx="10"/>
+            <text class="tm-zone" x="330" y="266">Airside concourse</text>
+
+            {% for g in tmap.gates %}
+            <rect class="tm-gate{{ ' is-mine' if g.mine }}" x="{{ g.x }}" y="120" width="{{ g.w }}" height="38" rx="4"/>
+            <text class="tm-gate-text{{ ' is-mine' if g.mine }}" x="{{ g.x + g.w / 2 }}" y="144" text-anchor="middle">{{ g.n }}</text>
+            {% endfor %}
+            <text class="tm-zone" x="330" y="112">Gates</text>
+
+            <polyline class="tm-route" points="{{ tmap.route }}"/>
+            <circle class="tm-you" cx="20" cy="210" r="9"/>
+            <text class="tm-label" x="20" y="238" text-anchor="start">You enter</text>
+            <rect class="tm-desk" x="96" y="196" width="28" height="28" rx="5"/>
+            <text class="tm-label" x="110" y="190" text-anchor="middle">Check-in</text>
+            <g transform="translate({{ tmap.gate_x }},100)">
+                <path class="tm-pin" d="M0 0 C-14 0 -14 -22 0 -22 C14 -22 14 0 0 0Z" transform="translate(0,-2)"/>
+                <text class="tm-pin-text" y="-8" text-anchor="middle">{{ gate_no or f.gate }}</text>
+            </g>
+
+            {% for s in shops %}
+            <g class="tm-shop{{ ' is-near' if s.near_gate }}">
+                <title>{{ s.name }} ({{ s.category }})</title>
+                <line x1="{{ s.x }}" y1="{{ 270 if s.zone == 'landside' else 250 }}" x2="{{ s.x }}" y2="{{ s.y - 10 }}"/>
+                <circle cx="{{ s.x }}" cy="{{ s.y }}" r="11"/>
+                <text x="{{ s.x }}" y="{{ s.y + 4 }}" text-anchor="middle">{{ s.n }}</text>
+            </g>
+            {% endfor %}
+        </svg>
+        </div>
+        <div class="seat-legend-row mt-3">
+            <span class="seat-legend"><span class="seat-swatch" style="background:var(--amber)"></span> Your route</span>
+            <span class="seat-legend"><span class="seat-swatch" style="background:var(--ink)"></span> Your gate</span>
+            <span class="seat-legend"><span class="seat-swatch swatch-shop"></span> Shop or amenity (numbered below)</span>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">Directions</div>
+            <div class="card-body">
+                <ol class="steps-list">
+                    <li><strong>Enter the departures hall</strong><span>Terminal {{ f.terminal }}, {{ src.name }}.</span></li>
+                    <li><strong>Check in and drop bags</strong><span>Skip the desk if you only have cabin baggage.</span></li>
+                    <li><strong>Clear security</strong><span>Keep your boarding pass ready.</span></li>
+                    <li><strong>Walk along the concourse to Gate {{ f.gate }}</strong><span>About {{ tmap.meters }} m, roughly {{ tmap.minutes }} min on foot, not counting queues.</span></li>
+                    <li><strong>Be at the gate by {{ boarding_time }}</strong><span>Boarding opens {{ opens }} minutes before departure.</span></li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <span>Shops &amp; amenities at {{ src.iata }}</span>
+                <div class="chip-filter" id="shop-filter"></div>
+            </div>
+            <div class="card-body">
+                {% if shops %}
+                <ul class="shop-list" id="shop-list">
+                    {% for s in shops %}
+                    <li class="shop-item" data-category="{{ s.category }}">
+                        <span class="shop-num">{{ s.n }}</span>
+                        <div class="shop-main">
+                            <strong>{{ s.name }}</strong>
+                            <span class="text-secondary">{{ s.category }} &middot; {{ 'Before security' if s.zone == 'landside' else 'After security' }} &middot; {{ s.hours }}</span>
+                        </div>
+                        <div class="shop-tags">
+                            {% if s.near_gate %}<span class="tag tag-gold">Near your gate</span>
+                            {% elif s.on_route %}<span class="tag">On your way</span>{% endif %}
+                            {% if s.open_at_boarding %}<span class="tag tag-green">Open at boarding</span>
+                            {% else %}<span class="tag tag-burgundy">Closed at boarding</span>{% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="empty-state mb-0">
+                    <i class="bi bi-shop"></i>
+                    <h5>No shop directory for {{ src.city }} yet</h5>
+                    <p class="text-secondary mb-0">Airport staff can add shops and amenities for this airport.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var items = document.querySelectorAll('.shop-item');
+    var box = document.getElementById('shop-filter');
+    if (!items.length) return;
+    var cats = Array.from(new Set(Array.from(items).map(function (i) { return i.dataset.category; }))).sort();
+    function make(label, value) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip-btn' + (value === '' ? ' active' : '');
+        b.textContent = label;
+        b.addEventListener('click', function () {
+            box.querySelectorAll('.chip-btn').forEach(function (x) { x.classList.remove('active'); });
+            b.classList.add('active');
+            items.forEach(function (i) { i.style.display = (!value || i.dataset.category === value) ? '' : 'none'; });
+        });
+        box.appendChild(b);
+    }
+    make('All', '');
+    cats.forEach(function (c) { make(c, c); });
+})();
+</script>
+{% endblock %}

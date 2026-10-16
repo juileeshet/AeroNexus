@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% from "_seatmap.html" import seatmap, seat_legend %}
+
+{% block title %}Book {{ flight.flight_number }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-3 gap-2">
+    <div>
+        <a href="{{ url_for('flights') }}" class="small text-secondary"><i class="bi bi-arrow-left"></i> All flights</a>
+        <h2 class="mb-0 mt-1">Book your flight</h2>
+    </div>
+    <span class="badge {{ flight.badge }}">{{ flight.status }}</span>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>{{ flight.flight_name }}</span>
+                <span class="badge bg-primary">{{ flight.flight_number }}</span>
+            </div>
+            <div class="card-body">
+                <div class="route-line">
+                    <div class="route-endpoint">
+                        <div class="route-iata">{{ flight.src_iata }}</div>
+                        <div class="route-city">{{ flight.source }}</div>
+                        <div class="route-time">{{ flight.departure }}</div>
+                    </div>
+                    <div class="route-path"><span class="plane-glyph"><i class="bi bi-airplane-fill"></i></span></div>
+                    <div class="route-endpoint">
+                        <div class="route-iata">{{ flight.dst_iata }}</div>
+                        <div class="route-city">{{ flight.destination }}</div>
+                        <div class="route-time">{{ flight.arrival }}</div>
+                    </div>
+                </div>
+                <div class="info-chips">
+                    <span><i class="bi bi-building"></i> Terminal {{ flight.terminal }}</span>
+                    <span><i class="bi bi-door-closed"></i> Gate {{ flight.gate }}</span>
+                    <span><i class="bi bi-person-check"></i> {{ flight.seats_left }} seats left</span>
+                </div>
+                <p class="small text-secondary mb-0 mt-2">Gates can change. Your boarding pass always shows the latest gate set by airport staff.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Choose your seat</div>
+            <div class="card-body">
+                {{ seat_legend() }}
+                {{ seatmap(layout, 'select') }}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <form method="POST" action="{{ url_for('book_flight', f_id=flight.f_id) }}" id="booking-form" class="sticky-summary">
+            <input type="hidden" id="selected-seat" name="seat">
+
+            <div class="card mb-4">
+                <div class="card-header">Passenger</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="passenger_name" class="form-label">Full name (as on ID)</label>
+                        <input type="text" class="form-control" id="passenger_name" name="passenger_name" value="{{ request.form.get('passenger_name', default_name) }}" required>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-5">
+                            <label for="passenger_age" class="form-label">Age</label>
+                            <input type="number" class="form-control" id="passenger_age" name="passenger_age" min="0" max="120" value="{{ request.form.get('passenger_age', '') }}" required>
+                        </div>
+                        <div class="col-7">
+                            <label for="passenger_gender" class="form-label">Gender</label>
+                            <select class="form-select" id="passenger_gender" name="passenger_gender" required>
+                                <option value="">Select</option>
+                                <option value="M">Male</option>
+                                <option value="F">Female</option>
+                                <option value="O">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Meal</span>
+                    <small class="text-secondary" id="meal-note">Priced for Economy</small>
+                </div>
+                <div class="card-body option-list">
+                    {% for m in meals %}
+                    <label class="option-card">
+                        <input type="radio" name="meal" value="{{ m.code }}" data-price="{{ m.price }}" {{ 'checked' if m.code == 'NONE' }}>
+                        <span class="option-body">
+                            <span class="option-title">{{ m.name }}
+                                {% if m.diet and m.diet != '-' %}<span class="diet diet-{{ m.diet|lower|replace('-', '') }}">{{ m.diet }}</span>{% endif %}
+                            </span>
+                            <span class="option-sub">{{ m.description }}</span>
+                        </span>
+                        <span class="option-price" data-meal-price="{{ m.code }}">{% if m.price %}&#8377;{{ '{:,.0f}'.format(m.price) }}{% else %}Free{% endif %}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">Extras</div>
+                <div class="card-body option-list">
+                    {% for a in addons %}
+                    <label class="option-card">
+                        <input type="checkbox" name="addons" value="{{ a.code }}" data-price="{{ a.price }}" data-group="{{ a.grp }}">
+                        <span class="option-body">
+                            <span class="option-title">{{ a.name }}</span>
+                            <span class="option-sub">{{ a.description }}</span>
+                        </span>
+                        <span class="option-price">{% if a.price %}&#8377;{{ '{:,.0f}'.format(a.price) }}{% else %}Free{% endif %}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">Price summary</div>
+                <div class="card-body">
+                    <div class="selected-seat-box" id="seat-summary">
+                        <i class="bi bi-hand-index"></i> Pick a seat on the map to see your price.
+                    </div>
+                    <ul class="price-lines" id="price-lines"></ul>
+                    <div class="price-total">
+                        <span>Total</span><strong id="total-price">&mdash;</strong>
+                    </div>
+                    <p class="small text-secondary mt-2 mb-0">Taxes and fees ({{ tax_pct }}% of fare) are included in the total. No hidden charges are added at payment.</p>
+                </div>
+            </div>
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg" id="book-button" disabled>Select a seat to continue</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var C = {{ config|tojson }};
+    var seat = null;
+    var money = function (n) {
+        return '\u20b9' + Number(n).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    };
+
+    fetch('/get_occupied_seats/' + C.flightId)
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d.status !== 'success') return;
+            d.seats.forEach(function (id) {
+                var b = document.querySelector('[data-seat="' + id + '"]');
+                if (b) { b.classList.add('seat-occupied'); b.disabled = true; }
+            });
+        });
+
+    document.querySelectorAll('.seat').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.seat.seat-selected').forEach(function (b) { b.classList.remove('seat-selected'); });
+            btn.classList.add('seat-selected');
+            seat = {id: btn.dataset.seat, cls: btn.dataset.class, type: btn.dataset.type, exit: btn.dataset.exit === '1'};
+            document.getElementById('selected-seat').value = seat.id;
+            update();
+        });
+    });
+
+    document.querySelectorAll('input[name="meal"], input[name="addons"]').forEach(function (el) {
+        el.addEventListener('change', function () {
+            if (el.dataset.group && el.checked) {
+                document.querySelectorAll('input[data-group="' + el.dataset.group + '"]').forEach(function (o) {
+                    if (o !== el) o.checked = false;
+                });
+            }
+            update();
+        });
+    });
+
+    function line(label, value, cls) {
+        var li = document.createElement('li');
+        if (cls) li.className = cls;
+        var a = document.createElement('span'); a.textContent = label;
+        var b = document.createElement('span'); b.textContent = value;
+        li.appendChild(a); li.appendChild(b);
+        return li;
+    }
+
+    function update() {
+        var meal = document.querySelector('input[name="meal"]:checked');
+        var mealIncluded = seat && C.includedMealClasses.indexOf(seat.cls) !== -1;
+        document.getElementById('meal-note').textContent = seat
+            ? (mealIncluded ? seat.cls + ' fare includes your meal' : 'Priced for ' + seat.cls)
+            : 'Priced for Economy';
+        document.querySelectorAll('[data-meal-price]').forEach(function (el) {
+            var m = C.meals.find(function (x) { return x.code === el.dataset.mealPrice; });
+            if (m && m.price) {
+                el.textContent = mealIncluded ? 'Included' : '\u20b9' + Number(m.price).toLocaleString('en-IN');
+                el.classList.toggle('is-included', !!mealIncluded);
+            }
+        });
+
+        var box = document.getElementById('seat-summary');
+        var ul = document.getElementById('price-lines');
+        var btn = document.getElementById('book-button');
+        ul.innerHTML = '';
+        if (!seat) {
+            box.textContent = 'Pick a seat on the map to see your price.';
+            document.getElementById('total-price').textContent = '\u2014';
+            btn.disabled = true; btn.textContent = 'Select a seat to continue';
+            return;
+        }
+
+        box.innerHTML = '';
+        var strong = document.createElement('strong'); strong.textContent = 'Seat ' + seat.id;
+        box.appendChild(strong);
+        box.appendChild(document.createTextNode(' \u00b7 ' + seat.cls + ' \u00b7 ' + seat.type + (seat.exit ? ' \u00b7 exit row' : '')));
+        var bag = document.createElement('div');
+        bag.className = 'small text-secondary';
+        bag.textContent = 'Checked baggage included: ' + C.baggage[seat.cls] + ' kg';
+        box.appendChild(bag);
+
+        var base = C.basePrice * C.multipliers[seat.cls];
+        var tax = base * C.tax;
+        var total = base + tax;
+        ul.appendChild(line(seat.cls + ' fare', money(base)));
+        ul.appendChild(line('Taxes & fees', money(tax)));
+        if (seat.exit) { ul.appendChild(line('Exit-row seat', money(C.exitFee))); total += C.exitFee; }
+        if (meal && meal.value !== 'NONE') {
+            var mp = mealIncluded ? 0 : Number(meal.dataset.price);
+            var mname = meal.closest('.option-card').querySelector('.option-title').childNodes[0].textContent.trim();
+            ul.appendChild(line(mname, mealIncluded ? 'Included' : money(mp), mealIncluded ? 'included' : ''));
+            total += mp;
+        }
+        document.querySelectorAll('input[name="addons"]:checked').forEach(function (a) {
+            var p = Number(a.dataset.price);
+            ul.appendChild(line(a.closest('.option-card').querySelector('.option-title').textContent.trim(), p ? money(p) : 'Free'));
+            total += p;
+        });
+        document.getElementById('total-price').textContent = money(total);
+        btn.disabled = false;
+        btn.textContent = 'Confirm booking \u00b7 ' + money(total);
+    }
+
+    document.getElementById('booking-form').addEventListener('submit', function (e) {
+        if (!document.getElementById('selected-seat').value) {
+            e.preventDefault();
+            alert('Please select a seat before booking.');
+        }
+    });
+    update();
+})();
+</script>
+{% endblock %}

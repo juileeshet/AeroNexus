@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Flights &amp; seats{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
+    <div>
+        <h2 class="mb-0">Flights &amp; seats</h2>
+        <p class="text-secondary mb-0">Occupancy and revenue for every scheduled flight. Admins view and monitor; staff manage the schedule.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('admin_export', kind='occupancy') }}" class="btn btn-outline-secondary"><i class="bi bi-download"></i> Export CSV</a>
+        <a href="{{ url_for('flight_tracker') }}" class="btn btn-outline-primary"><i class="bi bi-geo-alt"></i> Track flights</a>
+    </div>
+</div>
+
+{% if flights %}
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 admin-flights">
+            <thead>
+                <tr><th>Flight</th><th>Route</th><th>Departure</th><th>Status</th><th>Gate</th>
+                    <th style="min-width:190px">Seats sold</th><th>Empty</th><th class="text-end">Revenue</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for f in flights %}
+                <tr>
+                    <td><strong>{{ f.flight_name }}</strong><br><span class="code small text-secondary">{{ f.flight_number }}</span></td>
+                    <td class="text-nowrap">{{ f.src_iata }} <i class="bi bi-arrow-right text-secondary"></i> {{ f.dst_iata }}<br><span class="small text-secondary">{{ f.source }} to {{ f.destination }}</span></td>
+                    <td class="text-nowrap">{{ f.departure }}</td>
+                    <td><span class="badge {{ f.badge }}">{{ f.status }}</span></td>
+                    <td class="code text-nowrap">T{{ f.terminal }} / {{ f.gate }}</td>
+                    <td>
+                        <div class="d-flex justify-content-between small"><span>{{ f.sold }} / {{ total_seats }}</span><span>{{ f.load }}%</span></div>
+                        <div class="load-bar"><span style="width: {{ f.load }}%"></span></div>
+                        <div class="small text-secondary mt-1">
+                            {% for name, cap in class_capacity.items() %}{{ name }} {{ f.by_class.get(name, 0) }}/{{ cap }}{{ ' · ' if not loop.last }}{% endfor %}
+                        </div>
+                    </td>
+                    <td class="{{ 'text-danger' if f.seats_left == 0 }}"><strong>{{ f.seats_left }}</strong></td>
+                    <td class="text-end">&#8377;{{ '{:,.0f}'.format(f.revenue) }}</td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin_flight_detail', f_id=f.f_id) }}">Seat map</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('manifest', f_id=f.f_id) }}" title="Passenger manifest"><i class="bi bi-download"></i></a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state"><i class="bi bi-airplane"></i><h5>No flights scheduled</h5><p class="text-secondary mb-0">Staff can add flights from their dashboard.</p></div>
+{% endif %}
+{% endblock %}

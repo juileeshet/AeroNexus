@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="row align-items-center g-5">
+        <div class="{{ 'col-lg-6' if featured else 'col-lg-8' }}">
+            {% if routes %}
+            <span class="hero-eyebrow"><i class="bi bi-broadcast"></i>
+                {{ domestic_cities }} Indian {{ 'city' if domestic_cities == 1 else 'cities' }}{% if intl_cities %} &middot; {{ intl_cities }} international {{ 'hub' if intl_cities == 1 else 'hubs' }}{% endif %} &middot; {{ airline_count }} {{ 'airline' if airline_count == 1 else 'airlines' }}
+            </span>
+            {% endif %}
+            <h1>Book flights across India and beyond, seat by seat.</h1>
+            <p class="lead">Pick your exact seat on a real cabin map, add a meal or extra baggage, and get a boarding pass with your gate and a route to it, plus the shops on the way.</p>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Book a flight</a>
+                <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg">Create free account</a>
+            </div>
+            {% if routes %}
+            <div class="hero-routes">
+                {% for r in routes[:4] %}<span class="route-chip">{{ r.src_iata }} &rarr; {{ r.dst_iata }}</span>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% if featured %}
+        <div class="col-lg-6">
+            <div class="route-panel">
+                <div class="route-panel-label"><span>DEPARTURE</span><span>ARRIVAL</span></div>
+                <div class="route-panel-cities"><span>{{ featured.src_iata }}</span><span>{{ featured.dst_iata }}</span></div>
+                <svg viewBox="0 0 400 90" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flight path from {{ featured.source }} to {{ featured.destination }}">
+                    <path d="M 12 70 Q 200 -10 388 70" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2" stroke-dasharray="1 10" stroke-linecap="round"/>
+                    <circle cx="12" cy="70" r="5" fill="#C9972E"/>
+                    <circle cx="388" cy="70" r="5" fill="#C9972E"/>
+                    <text x="55" y="41" fill="#ffffff" font-size="15" transform="rotate(-35 55 41)">&#9992;</text>
+                </svg>
+                <div class="route-panel-meta">
+                    <span>Flight <strong>{{ featured.flight_number }}</strong> &middot; {{ featured.flight_name }}</span>
+                    <span><strong>{{ featured.duration }}</strong> &middot; from &#8377;{{ '{:,.0f}'.format(featured.price) }}</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mt-5 pt-3 g-4">
+    <div class="col-md-3">
+        <div class="card feature-card h-100">
+            <div class="feature-icon"><i class="bi bi-grid-3x3-gap"></i></div>
+            <h5>Real cabin seat map</h5>
+            <p class="text-secondary mb-0">See the cockpit, doors, wings, exit rows and window seats before you choose.</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card feature-card h-100">
+            <div class="feature-icon"><i class="bi bi-cup-hot"></i></div>
+            <h5>Meals and extras</h5>
+            <p class="text-secondary mb-0">Pre-order your meal, add baggage or a lounge pass, and see every rupee up front.</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card feature-card h-100">
+            <div class="feature-icon"><i class="bi bi-signpost-split"></i></div>
+            <h5>Gate and airport guide</h5>
+            <p class="text-secondary mb-0">Your boarding pass comes with a route to the gate and the shops along the way.</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card feature-card h-100">
+            <div class="feature-icon"><i class="bi bi-arrow-counterclockwise"></i></div>
+            <h5>Clear cancellations</h5>
+            <p class="text-secondary mb-0">The refund you will get is shown before you cancel, not after.</p>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5 pt-3">
+    <div class="col-12">
+        <h2 class="section-heading">How booking works</h2>
+        <p class="section-subtext mb-4">Three steps, start to finish.</p>
+    </div>
+    <div class="col-md-4"><div class="step"><h5>Search flights</h5><p>Browse the live schedule, or filter by city, airline and domestic or international.</p></div></div>
+    <div class="col-md-4"><div class="step"><h5>Choose seat, meal and extras</h5><p>Tap a seat on the map, pick a meal, and watch the total update as you go.</p></div></div>
+    <div class="col-md-4"><div class="step"><h5>Fly</h5><p>Your boarding pass, gate, terminal and airport guide are ready the moment you book.</p></div></div>
+</div>
+
+{% if routes %}
+<div class="row mt-5 pt-3 mb-4">
+    <div class="col-12">
+        <h2 class="section-heading">Popular routes</h2>
+        <p class="section-subtext mb-4">Fares shown are the lowest currently scheduled on each route.</p>
+    </div>
+    {% for r in routes %}
+    <div class="col-md-3 col-sm-6 mb-4">
+        <a class="card route-card h-100" href="{{ url_for('flights') }}">
+            <div class="card-body">
+                <div class="route-card-codes"><span>{{ r.src_iata }}</span><i class="bi bi-airplane-fill"></i><span>{{ r.dst_iata }}</span></div>
+                <div class="text-secondary small">{{ r.source }} to {{ r.destination }}</div>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <span class="price-tag">from &#8377;{{ '{:,.0f}'.format(r.from_price) }}</span>
+                    <span class="tag">{{ 'Domestic' if r.domestic else 'International' }}</span>
+                </div>
+                <div class="small text-secondary mt-2">{{ r.airline }}</div>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

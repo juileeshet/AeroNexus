@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
+    <div>
+        <h2 class="mb-0">Welcome back, {{ (me['name'] or session.get('username'))|e }}</h2>
+        <p class="text-secondary mb-0">{{ trips|length }} upcoming trip{{ '' if trips|length == 1 else 's' }} &middot; {{ trip_count }} booking{{ '' if trip_count == 1 else 's' }} in total</p>
+    </div>
+    <a href="{{ url_for('flights') }}" class="btn btn-primary btn-lg"><i class="bi bi-search"></i> Find a flight</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        {% if trips %}
+        {% set next = trips[0] %}
+        <div class="card next-trip mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div>
+                        <span class="hero-eyebrow mb-2">Next trip</span>
+                        <h3 class="mb-1">{{ next.source }} to {{ next.destination }}</h3>
+                        <p class="mb-0 text-secondary">{{ next.flight_name }} <span class="code">{{ next.flight_number }}</span> &middot; {{ next.dep_dt.strftime('%a %d %b, %H:%M') }}</p>
+                    </div>
+                    <div class="text-end">
+                        <div class="bp-label">Gate</div>
+                        <div class="gate-big code">{{ next.gate }}</div>
+                        <small class="text-secondary">Terminal {{ next.terminal }} &middot; Seat {{ next.seat }}</small>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-3 flex-wrap">
+                    <a href="{{ url_for('boarding_pass', t_id=next.t_id) }}" class="btn btn-primary"><i class="bi bi-qr-code"></i> Boarding pass</a>
+                    <a href="{{ url_for('airport_guide', t_id=next.t_id) }}" class="btn btn-outline-primary"><i class="bi bi-signpost-split"></i> Gate &amp; shops</a>
+                </div>
+            </div>
+        </div>
+        {% if trips|length > 1 %}
+        <div class="card mb-4">
+            <div class="card-header">Other upcoming trips</div>
+            <ul class="list-group list-group-flush">
+                {% for t in trips[1:4] %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><strong>{{ t.source }} to {{ t.destination }}</strong>
+                        <span class="text-secondary"> &middot; {{ t.dep_dt.strftime('%d %b, %H:%M') }} &middot; Seat {{ t.seat }}</span></span>
+                    <a href="{{ url_for('boarding_pass', t_id=t.t_id) }}" class="btn btn-sm btn-outline-primary">Boarding pass</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state mb-4">
+            <i class="bi bi-airplane"></i>
+            <h5>No upcoming trips</h5>
+            <p class="text-secondary mb-3">Pick a flight and seat, and your boarding pass will show up here.</p>
+            <a href="{{ url_for('flights') }}" class="btn btn-primary">Browse flights</a>
+        </div>
+        {% endif %}
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">Departing soon</h5>
+            <a href="{{ url_for('flights') }}" class="small">See all flights</a>
+        </div>
+        {% if flights %}
+        <div class="row">
+            {% for f in flights[:4] %}
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between"><strong>{{ f.src_iata }} <i class="bi bi-arrow-right text-secondary"></i> {{ f.dst_iata }}</strong><span class="code small">{{ f.flight_number }}</span></div>
+                        <div class="text-secondary small">{{ f.source }} to {{ f.destination }} &middot; {{ f.departure }}</div>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <span class="price-tag">&#8377;{{ '{:,.0f}'.format(f.price) }}</span>
+                            <a href="{{ url_for('book_flight', f_id=f.f_id) }}" class="btn btn-sm btn-primary">Book</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-secondary">No flights are open for booking right now.</p>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Your profile</span>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#profileModal">Edit</button>
+            </div>
+            <div class="card-body">
+                <ul class="clean-list">
+                    <li><span>Name</span><strong>{{ me['name'] }}</strong></li>
+                    <li><span>Email</span><strong>{{ me['email'] }}</strong></li>
+                    <li><span>Phone</span><strong>{{ me['phone'] }}</strong></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="profileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit profile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="profileForm">
+                    <div class="mb-3"><label class="form-label">Name</label><input type="text" class="form-control" name="name" value="{{ me['name'] }}" required></div>
+                    <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" name="email" value="{{ me['email'] }}" required></div>
+                    <div class="mb-3"><label class="form-label">Phone</label><input type="tel" class="form-control" name="phone" value="{{ me['phone'] }}" required></div>
+                    <div class="mb-1"><label class="form-label">New password <small class="text-secondary">(leave blank to keep current)</small></label><input type="password" class="form-control" name="password"></div>
+                </form>
+                <div class="text-danger small mt-2" id="profile-error"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveProfile">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('saveProfile').addEventListener('click', function () {
+    var fd = new FormData(document.getElementById('profileForm'));
+    var body = {};
+    fd.forEach(function (v, k) { if (k !== 'password' || v) body[k] = v; });
+    fetch('/update_profile', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d.status === 'success') { window.location.reload(); }
+            else { document.getElementById('profile-error').textContent = d.message; }
+        });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Boarding pass {{ pnr }}{% endblock %}
+
+{% block content %}
+{% set cancelled = t.status == 'CANCELLED' %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-3 gap-2 no-print">
+    <div>
+        <a href="{{ url_for('tickets') }}" class="small text-secondary"><i class="bi bi-arrow-left"></i> My trips</a>
+        <h2 class="mb-0 mt-1">Boarding pass</h2>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+        {% if not cancelled %}
+        <a href="{{ url_for('airport_guide', t_id=t.t_id) }}" class="btn btn-primary"><i class="bi bi-signpost-split"></i> Navigate to gate</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if not cancelled %}
+<div class="status-banner no-print" id="status-banner" data-dep="{{ dep.strftime('%Y-%m-%dT%H:%M:%S') }}"
+     data-opens="{{ opens_min }}" data-close="{{ close_min }}">
+    <i class="bi bi-clock-history"></i> <span id="status-text">Calculating boarding time...</span>
+</div>
+{% endif %}
+
+<div class="boarding-pass {{ 'is-void' if cancelled }}">
+    {% if cancelled %}<div class="void-stamp">CANCELLED</div>{% endif %}
+    <div class="bp-main">
+        <div class="bp-head">
+            <div><span class="bp-label">Airline</span><strong>{{ f.flight_name }}</strong></div>
+            <div class="bp-title"><i class="bi bi-airplane-fill"></i> Boarding pass</div>
+            <div class="text-end"><span class="bp-label">Class</span><strong>{{ t.class }}</strong></div>
+        </div>
+
+        <div class="bp-route">
+            <div>
+                <div class="bp-iata">{{ src.iata }}</div>
+                <div class="bp-city">{{ f.source }}</div>
+                <div class="bp-time">{{ dep.strftime('%H:%M') }}</div>
+            </div>
+            <div class="bp-line">
+                <i class="bi bi-airplane-fill"></i>
+                <small>{{ duration }}{{ ' · Domestic' if is_domestic else ' · International' }}</small>
+            </div>
+            <div class="text-end">
+                <div class="bp-iata">{{ dst.iata }}</div>
+                <div class="bp-city">{{ f.destination }}</div>
+                <div class="bp-time">{{ arr.strftime('%H:%M') }}</div>
+            </div>
+        </div>
+
+        <div class="bp-grid">
+            <div class="wide"><span class="bp-label">Passenger</span><strong>{{ t.passenger_name }}</strong></div>
+            <div><span class="bp-label">Flight</span><strong class="code">{{ f.flight_number }}</strong></div>
+            <div><span class="bp-label">Date</span><strong>{{ dep.strftime('%d %b %Y') }}</strong></div>
+            <div><span class="bp-label">Terminal</span><strong class="code">{{ f.terminal }}</strong></div>
+            <div><span class="bp-label">Gate</span><strong class="code bp-hot">{{ f.gate }}</strong></div>
+            <div><span class="bp-label">Boarding</span><strong class="code">{{ boarding_time }}</strong></div>
+            <div><span class="bp-label">Gate closes</span><strong class="code">{{ gate_close }}</strong></div>
+            <div><span class="bp-label">Seat</span><strong class="code bp-hot">{{ t.seat }}</strong></div>
+            <div><span class="bp-label">Seat type</span><strong>{{ seat.type }}{{ ' · Exit row' if seat.exit }}</strong></div>
+            <div><span class="bp-label">Group</span><strong class="code">{{ group }}</strong></div>
+            <div><span class="bp-label">Meal</span><strong>{{ t.meal or 'None' }}</strong></div>
+        </div>
+    </div>
+
+    <div class="bp-stub">
+        <div class="bp-stub-top">
+            <div><span class="bp-label">Seat</span><strong class="code bp-hot">{{ t.seat }}</strong></div>
+            <div><span class="bp-label">Gate</span><strong class="code bp-hot">{{ f.gate }}</strong></div>
+        </div>
+        <div class="bp-stub-mid">
+            <div><span class="bp-label">PNR</span><strong class="code">{{ pnr }}</strong></div>
+            <div><span class="bp-label">Ticket</span><strong class="code">TKT-{{ '%04d'|format(t.t_id) }}</strong></div>
+            <div><span class="bp-label">Flight</span><strong class="code">{{ f.flight_number }}</strong></div>
+            <div><span class="bp-label">Boards</span><strong class="code">{{ boarding_time }}</strong></div>
+        </div>
+        <svg class="bp-barcode" viewBox="0 0 {{ barcode.width }} {{ barcode.height }}" preserveAspectRatio="none" role="img" aria-label="Ticket barcode">
+            {% for b in barcode.bars %}<rect x="{{ b.x }}" y="0" width="{{ b.w }}" height="{{ barcode.height }}"/>{% endfor %}
+        </svg>
+        <div class="bp-stub-note code">{{ pnr }}{{ '%04d'|format(t.t_id) }}</div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-luggage"></i> Baggage</div>
+            <div class="card-body">
+                <ul class="clean-list">
+                    <li><span>Checked</span><strong>{{ checked_kg }} kg</strong></li>
+                    <li><span>Cabin</span><strong>{{ cabin_kg }} kg</strong></li>
+                    {% if extra_kg %}<li><span>Includes paid extra</span><strong>+{{ extra_kg }} kg</strong></li>{% endif %}
+                </ul>
+                {% if addon_names %}
+                <div class="mt-3">
+                    <div class="small text-secondary mb-1">Your extras</div>
+                    {% for n in addon_names %}<span class="chip">{{ n }}</span>{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-receipt"></i> Fare breakdown</div>
+            <div class="card-body">
+                {% if breakdown %}
+                <ul class="price-lines">
+                    <li><span>{{ t.class }} fare</span><span>&#8377;{{ '{:,.2f}'.format(breakdown.base) }}</span></li>
+                    <li><span>Taxes &amp; fees</span><span>&#8377;{{ '{:,.2f}'.format(breakdown.tax) }}</span></li>
+                    {% if breakdown.seat_fee %}<li><span>Exit-row seat</span><span>&#8377;{{ '{:,.2f}'.format(breakdown.seat_fee) }}</span></li>{% endif %}
+                    {% if breakdown.meal and breakdown.meal.code != 'NONE' %}
+                    <li class="{{ 'included' if breakdown.meal.included }}"><span>{{ breakdown.meal.name }}</span>
+                        <span>{{ 'Included' if breakdown.meal.included else '₹' ~ '{:,.2f}'.format(breakdown.meal.price) }}</span></li>
+                    {% endif %}
+                    {% for a in breakdown.addons %}
+                    <li><span>{{ a.name }}</span><span>{{ '₹' ~ '{:,.2f}'.format(a.price) if a.price else 'Free' }}</span></li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                <div class="price-total"><span>{{ 'Paid' if not cancelled else 'Paid (refunded ' ~ '₹{:,.2f}'.format(t.refund_amount) ~ ')' }}</span><strong>&#8377;{{ '{:,.2f}'.format(t.price) }}</strong></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 no-print">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-compass"></i> Before you fly</div>
+            <div class="card-body">
+                <ul class="clean-list">
+                    <li><span>Boarding opens</span><strong class="code">{{ boarding_time }}</strong></li>
+                    <li><span>Gate closes</span><strong class="code">{{ gate_close }}</strong></li>
+                    <li><span>Terminal / gate</span><strong class="code">T{{ f.terminal }} / {{ f.gate }}</strong></li>
+                </ul>
+                <p class="small text-secondary mt-3">Terminal and gate update here the moment airport staff change them, so check again before you head to the gate.</p>
+                <div class="d-grid gap-2">
+                    {% if not cancelled %}
+                    <a href="{{ url_for('airport_guide', t_id=t.t_id) }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-shop"></i> Gate route &amp; shops</a>
+                    {% endif %}
+                    <a href="{{ url_for('flight_tracker') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-geo-alt"></i> Track flights live</a>
+                    {% if can_cancel %}
+                    <a href="{{ url_for('tickets') }}" class="btn btn-outline-danger btn-sm">Cancel (refund &#8377;{{ '{:,.2f}'.format(refund_amount) }})</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var el = document.getElementById('status-banner');
+    if (!el) return;
+    var dep = new Date(el.dataset.dep).getTime();
+    var opens = Number(el.dataset.opens) * 60000, close = Number(el.dataset.close) * 60000;
+    var text = document.getElementById('status-text');
+    function span(ms) {
+        var m = Math.max(0, Math.round(ms / 60000)), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
+        return (d ? d + 'd ' : '') + (h || d ? h + 'h ' : '') + mm + 'm';
+    }
+    function tick() {
+        var now = Date.now();
+        el.className = 'status-banner no-print';
+        if (now >= dep) { text.textContent = 'This flight has departed.'; el.classList.add('is-done'); }
+        else if (now >= dep - close) { text.textContent = 'Gate is closing or closed. Departs in ' + span(dep - now) + '.'; el.classList.add('is-urgent'); }
+        else if (now >= dep - opens) { text.textContent = 'Boarding is open. Gate closes in ' + span(dep - close - now) + '.'; el.classList.add('is-open'); }
+        else { text.textContent = 'Boarding opens in ' + span(dep - opens - now) + '.'; }
+    }
+    tick(); setInterval(tick, 30000);
+})();
+</script>
+{% endblock %}

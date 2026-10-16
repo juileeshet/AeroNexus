@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}Overview{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
+    <div>
+        <h2 class="mb-0">System overview</h2>
+        <p class="text-secondary mb-0">Live numbers from the database. Admins monitor the system and do not book flights.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('flights') }}" class="btn btn-primary"><i class="bi bi-grid-3x3-gap"></i> Flights &amp; seats</a>
+        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#userManagementModal"><i class="bi bi-people"></i> Manage users</button>
+        <a href="{{ url_for('flight_tracker') }}" class="btn btn-outline-primary"><i class="bi bi-geo-alt"></i> Track flights</a>
+    </div>
+</div>
+
+<div class="dashboard-stats">
+    <div class="row g-3">
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Net revenue</h3><p class="h2 mb-0">&#8377;{{ '{:,.0f}'.format(stats.revenue) }}</p><small class="text-secondary">All time, after refunds</small></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Confirmed bookings</h3><p class="h2 mb-0">{{ stats.confirmed }}</p><small class="text-secondary">{{ stats.cancelled }} cancelled</small></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Seats sold</h3><p class="h2 mb-0">{{ stats.seats_sold }}</p><small class="text-secondary">on {{ stats.flights_upcoming }} upcoming flight{{ '' if stats.flights_upcoming == 1 else 's' }}</small></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Seats empty</h3><p class="h2 mb-0">{{ stats.seats_empty }}</p><small class="text-secondary">of {{ stats.capacity }} on upcoming flights</small></div></div>
+    </div>
+    <div class="row g-3 mt-0">
+        <div class="col-12 col-lg-6">
+            <div class="stat-card stat-wide">
+                <h3>Load factor, upcoming flights</h3>
+                <div class="d-flex align-items-center gap-3">
+                    <p class="h2 mb-0">{{ stats.load }}%</p>
+                    <div class="load-bar flex-grow-1"><span style="width: {{ stats.load }}%"></span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Users</h3><p class="h2 mb-0">{{ stats.users }}</p><small class="text-secondary">passengers, staff and admins</small></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Flights scheduled</h3><p class="h2 mb-0">{{ stats.flights_total }}</p><small class="text-secondary">{{ stats.flights_upcoming }} upcoming</small></div></div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span>Bookings and revenue</span>
+                <div class="btn-group btn-group-sm" id="period-group">
+                    <button class="btn btn-outline-primary active" data-period="daily">Daily</button>
+                    <button class="btn btn-outline-primary" data-period="weekly">Weekly</button>
+                    <button class="btn btn-outline-primary" data-period="monthly">Monthly</button>
+                </div>
+            </div>
+            <div class="card-body"><div class="chart-box"><canvas id="statsChart"></canvas></div></div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Recent activity</div>
+            <div class="card-body">
+                {% if activity %}
+                <ul class="activity-feed">
+                    {% for a in activity %}
+                    <li class="activity-item"><i class="bi {{ a.icon }}"></i><div><p>{{ a.text }}</p><span class="text-secondary">{{ a.when }}</span></div></li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-secondary mb-0">Nothing has happened yet. New bookings, cancellations, flights and registrations will appear here.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">System health</div>
+            <div class="card-body">
+                <ul class="clean-list">
+                    <li><span>Database</span><strong class="text-success"><i class="bi bi-check-circle-fill"></i> Connected</strong></li>
+                    <li><span>Database size</span><strong>{{ health.db_size_kb }} KB</strong></li>
+                    <li><span>Backups stored</span><strong>{{ health.backups }}</strong></li>
+                    <li><span>Last backup</span><strong id="last-backup">{{ health.last_backup or 'Never' }}</strong></li>
+                </ul>
+                <div class="d-grid gap-2 mt-3">
+                    <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#backupModal"><i class="bi bi-hdd"></i> Backup &amp; restore</button>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">Reports</div>
+            <div class="card-body d-grid gap-2">
+                <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_export', kind='bookings') }}"><i class="bi bi-download"></i> All bookings (CSV)</a>
+                <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_export', kind='occupancy') }}"><i class="bi bi-download"></i> Seat occupancy by flight (CSV)</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="userManagementModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Manage users</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-4">
+                    <div class="col-lg-8">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead><tr><th>Username</th><th>Role</th><th>Name</th><th>Contact</th><th class="text-end">Actions</th></tr></thead>
+                                <tbody id="users-body"><tr><td colspan="5" class="text-secondary">Loading...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <h6>Add a user</h6>
+                        <form id="addUserForm">
+                            <div class="mb-2"><label class="form-label">Role</label>
+                                <select class="form-select" name="role" id="new-role">
+                                    <option value="PASSENGER">Passenger</option><option value="STAFF">Staff</option><option value="ADMIN">Admin</option>
+                                </select></div>
+                            <div class="mb-2"><label class="form-label">Username</label><input class="form-control" name="username" required></div>
+                            <div class="mb-2"><label class="form-label">Password</label><input type="password" class="form-control" name="password" required minlength="6"></div>
+                            <div class="mb-2 role-field" data-roles="PASSENGER STAFF"><label class="form-label">Full name</label><input class="form-control" name="name"></div>
+                            <div class="mb-2 role-field" data-roles="PASSENGER"><label class="form-label">Email</label><input type="email" class="form-control" name="email"></div>
+                            <div class="mb-3 role-field" data-roles="PASSENGER"><label class="form-label">Phone</label><input class="form-control" name="phone"></div>
+                            <button type="submit" class="btn btn-primary w-100">Add user</button>
+                        </form>
+                        <div class="small mt-2" id="user-msg"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="backupModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Backup &amp; restore</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <button class="btn btn-primary mb-3" id="createBackup"><i class="bi bi-hdd"></i> Create backup now</button>
+                <div class="small mb-2" id="backup-msg"></div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead><tr><th>File</th><th>Created</th><th>Size</th><th></th></tr></thead>
+                        <tbody id="backups-body"><tr><td colspan="4" class="text-secondary">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+                <p class="small text-secondary mb-0">Restoring replaces the live database. A safety copy of the current database is saved first.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+    function cell(text, cls) { var td = document.createElement('td'); td.textContent = text == null ? '' : text; if (cls) td.className = cls; return td; }
+    function post(url, body) {
+        return fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(function (r) { return r.json(); });
+    }
+    function say(el, ok, text) { el.className = 'small mt-2 ' + (ok ? 'text-success' : 'text-danger'); el.textContent = text; }
+
+    /* ---- Users ---- */
+    var usersBody = document.getElementById('users-body');
+    function loadUsers() {
+        fetch('/admin/users').then(function (r) { return r.json(); }).then(function (d) {
+            usersBody.innerHTML = '';
+            if (d.status !== 'success') { usersBody.appendChild(cell(d.message)); return; }
+            d.users.forEach(function (u) {
+                var tr = document.createElement('tr');
+                tr.appendChild(cell(u.username, 'code'));
+                var role = document.createElement('td');
+                var b = document.createElement('span'); b.className = 'tag'; b.textContent = u.role.toLowerCase(); role.appendChild(b);
+                tr.appendChild(role);
+                tr.appendChild(cell(u.name || '-'));
+                tr.appendChild(cell([u.email, u.phone].filter(Boolean).join(' / ') || '-'));
+                var act = document.createElement('td'); act.className = 'text-end text-nowrap';
+                var rp = document.createElement('button'); rp.className = 'btn btn-sm btn-outline-secondary me-1'; rp.textContent = 'Reset password';
+                rp.addEventListener('click', function () {
+                    var pw = prompt('New password for ' + u.username + ' (min 6 characters):');
+                    if (!pw) return;
+                    if (pw.length < 6) { alert('Use at least 6 characters.'); return; }
+                    post('/admin/reset_password', {role: u.role, id: u.id, password: pw}).then(function (r) { alert(r.message); });
+                });
+                var del = document.createElement('button'); del.className = 'btn btn-sm btn-outline-danger'; del.textContent = 'Delete';
+                if (u.self) { del.disabled = true; del.title = 'You cannot delete your own account'; }
+                del.addEventListener('click', function () {
+                    if (!confirm('Delete ' + u.role.toLowerCase() + ' "' + u.username + '"?')) return;
+                    post('/admin/delete_user', {role: u.role, id: u.id}).then(function (r) { if (r.status !== 'success') alert(r.message); loadUsers(); });
+                });
+                act.appendChild(rp); act.appendChild(del); tr.appendChild(act);
+                usersBody.appendChild(tr);
+            });
+        });
+    }
+    function syncFields() {
+        var role = document.getElementById('new-role').value;
+        document.querySelectorAll('.role-field').forEach(function (f) { f.style.display = f.dataset.roles.split(' ').indexOf(role) !== -1 ? '' : 'none'; });
+    }
+    document.getElementById('new-role').addEventListener('change', syncFields); syncFields();
+    document.getElementById('addUserForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var body = {}; new FormData(e.target).forEach(function (v, k) { body[k] = v; });
+        post('/admin/add_user', body).then(function (r) {
+            say(document.getElementById('user-msg'), r.status === 'success', r.message);
+            if (r.status === 'success') { e.target.reset(); syncFields(); loadUsers(); }
+        });
+    });
+    var userModalEl = document.getElementById('userManagementModal');
+    userModalEl.addEventListener('show.bs.modal', loadUsers);
+    if (new URLSearchParams(window.location.search).get('open') === 'users') {
+        bootstrap.Modal.getOrCreateInstance(userModalEl).show();
+    }
+
+    /* ---- Backups ---- */
+    function loadBackups() {
+        var body = document.getElementById('backups-body');
+        fetch('/list_backups').then(function (r) { return r.json(); }).then(function (d) {
+            body.innerHTML = '';
+            if (d.status !== 'success' || !d.backups.length) { var tr = document.createElement('tr'); var td = cell('No backups yet.', 'text-secondary'); td.colSpan = 4; tr.appendChild(td); body.appendChild(tr); return; }
+            d.backups.slice().reverse().forEach(function (b) {
+                var tr = document.createElement('tr');
+                tr.appendChild(cell(b.file, 'code')); tr.appendChild(cell(b.created)); tr.appendChild(cell((b.size / 1024).toFixed(1) + ' KB'));
+                var td = document.createElement('td'); td.className = 'text-end';
+                var btn = document.createElement('button'); btn.className = 'btn btn-sm btn-outline-primary'; btn.textContent = 'Restore';
+                btn.addEventListener('click', function () {
+                    if (!confirm('Restore ' + b.file + '? The live database will be replaced.')) return;
+                    fetch('/restore_backup/' + encodeURIComponent(b.file)).then(function (r) { return r.json(); }).then(function (r) {
+                        say(document.getElementById('backup-msg'), r.status === 'success', r.message);
+                        if (r.status === 'success') setTimeout(function () { window.location.reload(); }, 1200);
+                    });
+                });
+                td.appendChild(btn); tr.appendChild(td); body.appendChild(tr);
+            });
+        });
+    }
+    document.getElementById('backupModal').addEventListener('show.bs.modal', loadBackups);
+    document.getElementById('createBackup').addEventListener('click', function () {
+        fetch('/backup_database').then(function (r) { return r.json(); }).then(function (r) {
+            say(document.getElementById('backup-msg'), r.status === 'success', r.message);
+            if (r.status === 'success') { loadBackups(); document.getElementById('last-backup').textContent = new Date().toISOString().slice(0, 16).replace('T', ' '); }
+        });
+    });
+
+    /* ---- Chart ---- */
+    var css = getComputedStyle(document.documentElement);
+    var sky = css.getPropertyValue('--sky').trim(), amber = css.getPropertyValue('--amber').trim();
+    var chart = new Chart(document.getElementById('statsChart'), {
+        type: 'line',
+        data: {labels: [], datasets: [
+            {label: 'Bookings', borderColor: sky, backgroundColor: sky, yAxisID: 'y', tension: 0.3, data: []},
+            {label: 'Revenue (\u20b9)', borderColor: amber, backgroundColor: amber, yAxisID: 'y1', tension: 0.3, data: []}
+        ]},
+        options: {responsive: true, maintainAspectRatio: false, interaction: {mode: 'index', intersect: false},
+            scales: {y: {beginAtZero: true, ticks: {precision: 0}, title: {display: true, text: 'Bookings'}},
+                     y1: {beginAtZero: true, position: 'right', grid: {drawOnChartArea: false}, title: {display: true, text: 'Revenue (\u20b9)'}}}}
+    });
+    function loadStats(period) {
+        fetch('/admin/stats/' + period).then(function (r) { return r.json(); }).then(function (d) {
+            if (d.status !== 'success') return;
+            chart.data.labels = d.labels; chart.data.datasets[0].data = d.bookings; chart.data.datasets[1].data = d.revenue; chart.update();
+        });
+    }
+    document.querySelectorAll('#period-group [data-period]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            document.querySelectorAll('#period-group .btn').forEach(function (x) { x.classList.remove('active'); });
+            b.classList.add('active'); loadStats(b.dataset.period);
+        });
+    });
+    loadStats('daily');
+})();
+</script>
+{% endblock %}

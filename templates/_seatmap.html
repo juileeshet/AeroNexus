@@ -1,0 +1,66 @@
+{% macro seatmap(layout, mode='select', sold={}) %}
+<div class="aircraft" id="aircraft">
+    <div class="aircraft-direction"><i class="bi bi-arrow-up"></i> Front of aircraft</div>
+    <div class="aircraft-nose">
+        <div class="cockpit"><i class="bi bi-compass"></i><span>Cockpit</span></div>
+    </div>
+    <div class="aircraft-body">
+        <div class="cabin-strip">
+            <span class="door"><i class="bi bi-door-open"></i> Door L1</span>
+            <span class="amenity"><i class="bi bi-cup-hot"></i> Galley &middot; <i class="bi bi-droplet"></i> Lavatory</span>
+            <span class="door">Door R1 <i class="bi bi-door-open"></i></span>
+        </div>
+
+        <div class="seat-row col-head">
+            <span class="window-tag"><i class="bi bi-brightness-low"></i> Window</span>
+            {% for letter in ['A','B','C'] %}<span class="col-letter">{{ letter }}</span>{% endfor %}
+            <span class="aisle-gap aisle-label">Aisle</span>
+            {% for letter in ['D','E','F'] %}<span class="col-letter">{{ letter }}</span>{% endfor %}
+            <span class="window-tag">Window <i class="bi bi-brightness-low"></i></span>
+        </div>
+
+        {% for band in layout %}
+        <div class="class-band band-{{ band.name|lower }}">
+            <div class="class-title"><span>{{ band.name }} Class</span></div>
+            {% for row in band.rows %}
+            <div class="seat-row{% if row.wing %} wing-row{% endif %}{% if row.exit %} exit-row{% endif %}">
+                {% if row.exit %}<span class="exit-flag exit-left"><i class="bi bi-box-arrow-left"></i> Exit</span>{% endif %}
+                {% for seat in row.seats %}
+                    {% if seat.col == 'D' %}<div class="aisle-gap"><span class="row-num">{{ row.number }}</span></div>{% endif %}
+                    {% set taken = seat.id in sold %}
+                    <button type="button"
+                            class="seat seat-{{ band.name|lower }} seat-{{ seat.type|lower }} seat-col-{{ seat.col|lower }}{% if row.exit %} seat-exit{% endif %}{% if taken %} seat-occupied{% endif %}"
+                            data-seat="{{ seat.id }}" data-class="{{ band.name }}" data-type="{{ seat.type }}"
+                            data-exit="{{ 1 if row.exit else 0 }}"
+                            {% if mode != 'select' or taken %}disabled{% endif %}
+                            title="{{ seat.id }} - {{ seat.type }}{% if row.exit %}, exit row{% endif %}{% if taken and sold[seat.id] %} - {{ sold[seat.id] }}{% endif %}">
+                        {{ seat.id }}
+                    </button>
+                {% endfor %}
+                {% if row.exit %}<span class="exit-flag exit-right">Exit <i class="bi bi-box-arrow-right"></i></span>{% endif %}
+                {% if row.wing %}<span class="wing wing-left"></span><span class="wing wing-right"></span>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        <div class="cabin-strip cabin-strip-rear">
+            <span class="door"><i class="bi bi-door-open"></i> Door L2</span>
+            <span class="amenity"><i class="bi bi-cup-hot"></i> Galley &middot; <i class="bi bi-droplet"></i> Lavatory</span>
+            <span class="door">Door R2 <i class="bi bi-door-open"></i></span>
+        </div>
+    </div>
+    <div class="aircraft-tail"><span>Tail</span></div>
+    <div class="aircraft-direction"><i class="bi bi-arrow-down"></i> Rear of aircraft</div>
+</div>
+{% endmacro %}
+
+{% macro seat_legend(show_selected=True) %}
+<div class="seat-legend-row">
+    <span class="seat-legend"><span class="seat-swatch swatch-available"></span> Available</span>
+    {% if show_selected %}<span class="seat-legend"><span class="seat-swatch swatch-selected"></span> Selected</span>{% endif %}
+    <span class="seat-legend"><span class="seat-swatch swatch-occupied"></span> {{ 'Occupied' if show_selected else 'Sold' }}</span>
+    <span class="seat-legend"><span class="seat-swatch swatch-exit"></span> Exit row (extra legroom)</span>
+    <span class="seat-legend"><span class="seat-swatch swatch-window"></span> Window seat</span>
+</div>
+{% endmacro %}

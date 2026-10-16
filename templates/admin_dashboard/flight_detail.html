@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_seatmap.html" import seatmap, seat_legend %}
+
+{% block title %}{{ flight.flight_number }} seats{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
+    <div>
+        <a href="{{ url_for('flights') }}" class="small text-secondary"><i class="bi bi-arrow-left"></i> All flights</a>
+        <h2 class="mb-0 mt-1">{{ flight.flight_name }} <span class="code text-secondary">{{ flight.flight_number }}</span></h2>
+        <p class="text-secondary mb-0">{{ flight.source }} ({{ flight.src_iata }}) to {{ flight.destination }} ({{ flight.dst_iata }}) &middot; {{ flight.departure }} &middot; T{{ flight.terminal }} / Gate {{ flight.gate }}</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <span class="badge {{ flight.badge }}">{{ flight.status }}</span>
+        <a href="{{ url_for('manifest', f_id=flight.f_id) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Manifest</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="stat-card mb-3"><h3>Seats sold</h3><p class="h2 mb-0">{{ sold|length }} <small class="text-secondary h6">of {{ total_seats }}</small></p></div>
+        <div class="stat-card mb-3"><h3>Seats empty</h3><p class="h2 mb-0">{{ total_seats - sold|length }}</p></div>
+        <div class="stat-card"><h3>Load factor</h3>
+            <p class="h2 mb-2">{{ (sold|length / total_seats * 100)|round(1) }}%</p>
+            <div class="load-bar"><span style="width: {{ (sold|length / total_seats * 100)|round(1) }}%"></span></div></div>
+        <p class="small text-secondary mt-3">Hover a sold seat to see who is sitting there. This view is read only.</p>
+    </div>
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">Cabin occupancy</div>
+            <div class="card-body">
+                {{ seat_legend(False) }}
+                {{ seatmap(layout, 'view', sold) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Airport shops{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2 class="mb-0">Airport shops &amp; amenities</h2>
+    <p class="text-secondary mb-0">This directory powers the "Gate &amp; shops" guide passengers see on their boarding pass.</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">Add a shop</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('staff_shop_add') }}">
+                    <div class="mb-2"><label class="form-label">Airport city</label>
+                        <select class="form-select" name="city" required>{% for c in cities %}<option>{{ c }}</option>{% endfor %}</select></div>
+                    <div class="mb-2"><label class="form-label">Name</label><input class="form-control" name="name" required></div>
+                    <div class="mb-2"><label class="form-label">Category</label><input class="form-control" name="category" list="cats" placeholder="Cafe, Pharmacy, Lounge..." required>
+                        <datalist id="cats">{% for c in shops|map(attribute='category')|unique %}<option value="{{ c }}">{% endfor %}</datalist></div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><label class="form-label">Zone</label>
+                            <select class="form-select" name="zone"><option value="airside">After security</option><option value="landside">Before security</option></select></div>
+                        <div class="col-6"><label class="form-label">Position (0-100)</label><input type="number" class="form-control" name="pos" min="0" max="100" value="50" required></div>
+                    </div>
+                    <div class="mb-3"><label class="form-label">Opening hours</label><input class="form-control" name="hours" placeholder="24 hours or 06:00-22:00"></div>
+                    <button class="btn btn-primary w-100">Add shop</button>
+                </form>
+                <p class="small text-secondary mt-3 mb-0">Position is how far along the zone the shop sits: 0 is nearest the entrance (or security), 100 is the far end of the concourse.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead><tr><th>Airport</th><th>Shop</th><th>Category</th><th>Zone</th><th>Hours</th><th></th></tr></thead>
+                    <tbody>
+                        {% for s in shops %}
+                        <tr>
+                            <td>{{ s.city }}</td><td>{{ s.name }}</td><td>{{ s.category }}</td>
+                            <td>{{ 'Before security' if s.zone == 'landside' else 'After security' }} &middot; {{ s.pos }}</td>
+                            <td class="small">{{ s.hours }}</td>
+                            <td class="text-end">
+                                <form method="POST" action="{{ url_for('staff_shop_delete', shop_id=s.id) }}" onsubmit="return confirm('Remove {{ s.name|e }}?')">
+                                    <button class="btn btn-sm btn-outline-danger">Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" class="text-secondary">No shops yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

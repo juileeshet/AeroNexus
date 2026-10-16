@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Flights{% endblock %}
+
+{% block content %}
+{% set is_staff = session.get('role') == 'STAFF' %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-3 gap-2">
+    <div>
+        <h2 class="mb-0">{{ 'Flight schedule' if is_staff else 'Available flights' }}</h2>
+        <p class="text-secondary mb-0" id="result-count"></p>
+    </div>
+    {% if is_staff %}
+    <a href="{{ url_for('add_flight') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add flight</a>
+    {% endif %}
+</div>
+
+<div class="filter-bar mb-4">
+    <div class="input-group filter-search">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" id="search-flights" placeholder="Search by city, airline or flight number">
+    </div>
+    <div class="btn-group" role="group" aria-label="Flight type">
+        <button type="button" class="btn btn-outline-primary active" data-filter="all">All</button>
+        <button type="button" class="btn btn-outline-primary" data-filter="domestic">Domestic</button>
+        <button type="button" class="btn btn-outline-primary" data-filter="international">International</button>
+    </div>
+    <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="upcoming-only" {{ 'checked' if not is_staff }}>
+        <label class="form-check-label" for="upcoming-only">Upcoming only</label>
+    </div>
+</div>
+
+<div class="row" id="flights-container">
+    {% for f in flights %}
+    <div class="col-md-6 mb-4 flight-item"
+         data-search="{{ (f.flight_name ~ ' ' ~ f.flight_number ~ ' ' ~ f.source ~ ' ' ~ f.destination ~ ' ' ~ f.src_iata ~ ' ' ~ f.dst_iata)|lower }}"
+         data-type="{{ 'domestic' if f.domestic else 'international' }}"
+         data-upcoming="{{ 1 if f.status in ('Scheduled', 'Boarding') else 0 }}">
+        <div class="card flight-card {{ 'is-past' if f.status in ('In Air', 'Landed') }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ f.flight_name }}</h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <span class="badge {{ f.badge }}">{{ f.status }}</span>
+                    <span class="badge bg-primary">{{ f.flight_number }}</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="route-line">
+                    <div class="route-endpoint">
+                        <div class="route-iata">{{ f.src_iata }}</div>
+                        <div class="route-city">{{ f.source }}</div>
+                        <div class="route-time">{{ f.departure }}</div>
+                    </div>
+                    <div class="route-path"><span class="plane-glyph"><i class="bi bi-airplane-fill"></i></span></div>
+                    <div class="route-endpoint">
+                        <div class="route-iata">{{ f.dst_iata }}</div>
+                        <div class="route-city">{{ f.destination }}</div>
+                        <div class="route-time">{{ f.arrival }}</div>
+                    </div>
+                </div>
+                <div class="info-chips mb-3">
+                    <span><i class="bi bi-building"></i> Terminal {{ f.terminal }}</span>
+                    <span><i class="bi bi-door-closed"></i> Gate {{ f.gate }}</span>
+                    <span><i class="bi bi-person-check"></i> {{ f.seats_left }} left</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="price-tag">from &#8377;{{ '{:,.0f}'.format(f.price) }}</span>
+                    {% if is_staff %}
+                        <div class="btn-group">
+                            <a href="{{ url_for('manifest', f_id=f.f_id) }}" class="btn btn-outline-secondary" title="Download passenger manifest"><i class="bi bi-download"></i></a>
+                            <button class="btn btn-outline-primary edit-flight-btn" data-bs-toggle="modal" data-bs-target="#editFlightModal"
+                                    data-flight-id="{{ f.f_id }}" data-flight-number="{{ f.flight_number }}"
+                                    data-flight-name="{{ f.flight_name }}" data-source="{{ f.source }}"
+                                    data-destination="{{ f.destination }}" data-departure="{{ f.departure }}"
+                                    data-arrival="{{ f.arrival }}" data-price="{{ f.price }}"
+                                    data-terminal="{{ f.terminal }}" data-gate="{{ f.gate }}">Edit</button>
+                            <form method="POST" action="{{ url_for('delete_flight', f_id=f.f_id) }}" class="d-inline"
+                                  onsubmit="return confirm('Delete this flight?')">
+                                <button class="btn btn-outline-danger" style="border-top-left-radius:0;border-bottom-left-radius:0">Delete</button>
+                            </form>
+                        </div>
+                    {% elif f.bookable %}
+                        <a href="{{ url_for('book_flight', f_id=f.f_id) }}" class="btn btn-primary">Book now</a>
+                    {% else %}
+                        <button class="btn btn-outline-secondary" disabled>{{ 'Sold out' if f.seats_left == 0 and f.status in ('Scheduled', 'Boarding') else 'Closed' }}</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="empty-state">
+            <i class="bi bi-airplane"></i>
+            <h5>No flights scheduled yet</h5>
+            <p class="text-secondary mb-0">{{ 'Add the first flight to get started.' if is_staff else 'Please check back soon.' }}</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<div class="empty-state d-none" id="no-match">
+    <i class="bi bi-search"></i>
+    <h5>No flights match your filters</h5>
+    <p class="text-secondary mb-0">Try another city, or switch off "Upcoming only".</p>
+</div>
+
+{% if is_staff %}
+<div class="modal fade" id="editFlightModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit flight</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-flight-id">
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label">Flight number</label><input type="text" class="form-control" id="edit-flight-number"></div>
+                    <div class="col-md-6"><label class="form-label">Airline</label><input type="text" class="form-control" id="edit-flight-name"></div>
+                    <div class="col-md-6"><label class="form-label">From</label><input type="text" class="form-control" id="edit-source"></div>
+                    <div class="col-md-6"><label class="form-label">To</label><input type="text" class="form-control" id="edit-destination"></div>
+                    <div class="col-md-6"><label class="form-label">Departure</label><input type="datetime-local" class="form-control" id="edit-departure"></div>
+                    <div class="col-md-6"><label class="form-label">Arrival</label><input type="datetime-local" class="form-control" id="edit-arrival"></div>
+                    <div class="col-md-4"><label class="form-label">Base price (&#8377;)</label><input type="number" class="form-control" id="edit-price" min="1" step="0.01"></div>
+                    <div class="col-md-4"><label class="form-label">Terminal</label><input type="text" class="form-control" id="edit-terminal"></div>
+                    <div class="col-md-4"><label class="form-label">Gate</label><input type="text" class="form-control" id="edit-gate"></div>
+                </div>
+                <p class="small text-secondary mt-3 mb-0">Passengers see terminal and gate changes on their boarding pass straight away.</p>
+            </div>
+            <div class="modal-footer">
+                <div class="me-auto text-danger small" id="edit-error"></div>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveFlightBtn">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var items = document.querySelectorAll('.flight-item');
+    var search = document.getElementById('search-flights');
+    var upcoming = document.getElementById('upcoming-only');
+    var typeFilter = 'all';
+
+    function apply() {
+        var term = search.value.trim().toLowerCase();
+        var shown = 0;
+        items.forEach(function (el) {
+            var ok = (!term || el.dataset.search.indexOf(term) !== -1)
+                  && (typeFilter === 'all' || el.dataset.type === typeFilter)
+                  && (!upcoming.checked || el.dataset.upcoming === '1');
+            el.style.display = ok ? '' : 'none';
+            if (ok) shown++;
+        });
+        document.getElementById('result-count').textContent = items.length ? shown + ' of ' + items.length + ' flights' : '';
+        var nm = document.getElementById('no-match');
+        if (nm) nm.classList.toggle('d-none', shown !== 0 || !items.length);
+    }
+    search.addEventListener('input', apply);
+    upcoming.addEventListener('change', apply);
+    document.querySelectorAll('[data-filter]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('[data-filter]').forEach(function (b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            typeFilter = btn.dataset.filter;
+            apply();
+        });
+    });
+    apply();
+
+    var save = document.getElementById('saveFlightBtn');
+    if (!save) return;
+    var toLocal = function (s) { return (s || '').replace(' ', 'T'); };
+    document.querySelectorAll('.edit-flight-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var d = btn.dataset;
+            document.getElementById('edit-error').textContent = '';
+            document.getElementById('edit-flight-id').value = d.flightId;
+            document.getElementById('edit-flight-number').value = d.flightNumber;
+            document.getElementById('edit-flight-name').value = d.flightName;
+            document.getElementById('edit-source').value = d.source;
+            document.getElementById('edit-destination').value = d.destination;
+            document.getElementById('edit-departure').value = toLocal(d.departure);
+            document.getElementById('edit-arrival').value = toLocal(d.arrival);
+            document.getElementById('edit-price').value = d.price;
+            document.getElementById('edit-terminal').value = d.terminal;
+            document.getElementById('edit-gate').value = d.gate;
+        });
+    });
+    save.addEventListener('click', function () {
+        var id = document.getElementById('edit-flight-id').value;
+        var body = {
+            flight_number: document.getElementById('edit-flight-number').value,
+            flight_name: document.getElementById('edit-flight-name').value,
+            source: document.getElementById('edit-source').value,
+            destination: document.getElementById('edit-destination').value,
+            departure: document.getElementById('edit-departure').value,
+            arrival: document.getElementById('edit-arrival').value,
+            price: document.getElementById('edit-price').value,
+            terminal: document.getElementById('edit-terminal').value,
+            gate: document.getElementById('edit-gate').value
+        };
+        fetch('/edit_flight/' + id, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.status === 'success') { window.location.reload(); }
+                else { document.getElementById('edit-error').textContent = data.message; }
+            });
+    });
+})();
+</script>
+{% endblock %}

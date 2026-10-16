@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}My Trips{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
+    <div>
+        <h2 class="mb-0">My trips</h2>
+        <p class="text-secondary mb-0">Boarding passes, gates and airport guides for every booking.</p>
+    </div>
+    <a href="{{ url_for('flights') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Book another flight</a>
+</div>
+
+{% if trips %}
+<div class="row">
+    {% for t in trips %}
+    {% set cancelled = t.status == 'CANCELLED' %}
+    <div class="col-lg-6 mb-4">
+        <div class="card ticket-card {{ 'is-cancelled' if cancelled }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="ticket-number">PNR {{ t.pnr }}</span>
+                {% if cancelled %}
+                    <span class="badge bg-danger">Cancelled</span>
+                {% elif t.departure and t.flight_state == 'Landed' %}
+                    <span class="badge bg-secondary">Completed</span>
+                {% elif t.departure and t.flight_state == 'In Air' %}
+                    <span class="badge bg-success">In air</span>
+                {% else %}
+                    <span class="badge bg-success">Confirmed</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if t.departure %}
+                <div class="route-line">
+                    <div class="route-endpoint">
+                        <div class="route-iata">{{ t.src_iata }}</div>
+                        <div class="route-city">{{ t.source }}</div>
+                        <div class="route-time">{{ t.departure }}</div>
+                    </div>
+                    <div class="route-path"><span class="plane-glyph"><i class="bi bi-airplane-fill"></i></span></div>
+                    <div class="route-endpoint">
+                        <div class="route-iata">{{ t.dst_iata }}</div>
+                        <div class="route-city">{{ t.destination }}</div>
+                        <div class="route-time">{{ t.arrival }}</div>
+                    </div>
+                </div>
+                <div class="info-chips mb-2">
+                    <span class="code">{{ t.flight_number }}</span>
+                    <span><i class="bi bi-building"></i> T{{ t.terminal }}</span>
+                    <span><i class="bi bi-door-closed"></i> Gate {{ t.gate }}</span>
+                </div>
+                {% else %}
+                <p class="text-secondary">This flight is no longer in the schedule.</p>
+                {% endif %}
+
+                <dl class="detail-grid">
+                    <div><dt>Passenger</dt><dd>{{ t.passenger_name }}</dd></div>
+                    <div><dt>Seat</dt><dd class="code">{{ t.seat }} &middot; {{ t.class }}</dd></div>
+                    <div><dt>Meal</dt><dd>{{ t.meal or 'None' }}</dd></div>
+                    <div><dt>{{ 'Refunded' if cancelled else 'Paid' }}</dt>
+                        <dd><span class="price-tag">&#8377;{{ '{:,.2f}'.format(t.refund_amount if cancelled else t.price) }}</span></dd></div>
+                </dl>
+
+                {% if not cancelled and t.departure %}
+                <hr class="ticket-stub-divider">
+                <div class="ticket-actions">
+                    <a href="{{ url_for('boarding_pass', t_id=t.t_id) }}" class="btn btn-primary btn-sm"><i class="bi bi-qr-code"></i> Boarding pass</a>
+                    <a href="{{ url_for('airport_guide', t_id=t.t_id) }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-signpost-split"></i> Gate &amp; shops</a>
+                    {% if t.can_cancel %}
+                    <button class="btn btn-outline-danger btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#cancelModal"
+                            data-action="{{ url_for('cancel_ticket', t_id=t.t_id) }}"
+                            data-refund="{{ '{:,.2f}'.format(t.refund_amount_quote) }}" data-share="{{ t.refund_share }}"
+                            data-label="{{ t.flight_number }} {{ t.src_iata }} to {{ t.dst_iata }}">Cancel</button>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-ticket-perforated"></i>
+    <h5>No trips yet</h5>
+    <p class="text-secondary">Book your first flight and your boarding pass will appear here.</p>
+    <a href="{{ url_for('flights') }}" class="btn btn-primary">Browse flights</a>
+</div>
+{% endif %}
+
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" class="modal-content" id="cancel-form">
+            <div class="modal-header">
+                <h5 class="modal-title">Cancel this ticket?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">You are cancelling <strong id="cancel-label"></strong>.</p>
+                <div class="refund-box">
+                    <span>Refund</span>
+                    <strong id="cancel-refund"></strong>
+                    <small id="cancel-share"></small>
+                </div>
+                <p class="small text-secondary mt-3 mb-0">{{ policy }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep ticket</button>
+                <button type="submit" class="btn btn-danger">Cancel ticket</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('cancelModal').addEventListener('show.bs.modal', function (e) {
+    var d = e.relatedTarget.dataset;
+    document.getElementById('cancel-form').action = d.action;
+    document.getElementById('cancel-label').textContent = d.label;
+    document.getElementById('cancel-refund').textContent = '\u20b9' + d.refund;
+    document.getElementById('cancel-share').textContent = d.share + '% of your fare';
+});
+</script>
+{% endblock %}
