@@ -1,98 +1,51 @@
-# AeroNexus – Airport Management System
+# AeroNexus — Airport Management System
 
-A full-stack web-based Airport Management System built with Flask and SQLite for managing flights, passenger bookings, staff operations, administrative workflows, and real-time flight tracking.
+AeroNexus is a web-based airport management and flight booking system built using Python Flask and SQLite. It provides dedicated interfaces for passengers, airport staff, and administrators to manage flight reservations and airport operations.
 
 ## Features
 
-### Role-Based Access Control
-- Passenger, Staff, and Admin user roles
-- Role-based authentication and session management
-- Separate dashboards and workflows for each role
-- Secure password hashing using bcrypt
+- **Passenger Portal:** Flight search, seat selection, booking management, add-on services, and digital boarding passes.
+- **Staff Dashboard:** Manage flight schedules, gates, and airport shops; export passenger manifests.
+- **Admin Dashboard:** Monitor bookings, revenue, seat occupancy, manage users, and generate reports.
+- **Booking Management:** Fare calculation, ticket cancellation, and database-backed reservations.
+- **Database Management:** SQLite storage with initialization, backup, and restore functionality.
 
-### Passenger Features
-- User registration and authentication
-- Flight search and filtering
-- Flight booking
-- Seat selection
-- Multiple travel classes
-- Dynamic seat availability
-- Booking history
-- Profile management
-
-### Staff Features
-- Add flights
-- Edit flight information
-- Delete flights
-- Manage flight schedules and pricing
-- View available flights
-
-### Admin Features
-- User management
-- Add and delete users
-- Password reset
-- User role management
-- Booking and revenue analytics
-- Database backup and restore
-- System statistics
-
-### Flight Tracking
-- Interactive live flight map using Leaflet.js
-- OpenStreetMap integration
-- Real-time active flight tracking
-- Flight progress calculation
-- Flight status detection:
-  - Scheduled
-  - In Air
-  - Landed
-- Automatic flight data refresh every 10 seconds
-- Interactive flight markers and routes
-
-### Analytics
-- Daily booking statistics
-- Weekly booking statistics
-- Monthly booking statistics
-- Revenue tracking
-- Booking trend analysis
-
-## Technology Stack
+## Tech Stack
 
 - **Backend:** Python, Flask
-- **Frontend:** HTML5, CSS3, JavaScript, Jinja2
+- **Frontend:** HTML, CSS, JavaScript, Jinja2
 - **Database:** SQLite
-- **Authentication:** Flask-Session, bcrypt
-- **Mapping:** Leaflet.js, OpenStreetMap
-- **APIs:** Flask JSON endpoints
-- **Libraries:** python-dateutil
-- **Development:** Git, GitHub
+- **Authentication:** bcrypt, Flask-Session
 
-## Project Metrics
+## Installation
 
-- 23 Flask routes
-- 3 user roles
-- 3 role-specific dashboards
-- 3 analytics time periods
-- 11 mapped airport locations
-- 10-second flight-tracking refresh interval
+```bash
+git clone https://github.com/juileeshet/AeroNexus.git
+cd AeroNexus
+python -m venv venv
+```
 
-## Project Structure
+Activate the virtual environment and install dependencies:
 
-```text
-airport_management_system-main/
-│
-├── main.py
-├── database.db
-├── configs.json
-├── requirements.txt
-│
-├── templates/
-│   ├── admin/
-│   ├── employee/
-│   ├── passenger/
-│   ├── admin_dashboard/
-│   ├── employee_dashboard/
-│   └── passenger_dashboard/
-│
-├── static/
-│
-└── backups/
+```bash
+# Windows
+venv\Scripts\activate
+
+# Install dependencies
+python -m pip install -r requirements.txt
+```
+
+Initialize the database and run the application:
+
+```bash
+python database/db.py init
+python main.py
+```
+
+Open `http://localhost:5000` in your browser.
+
+## Author
+
+**Juilee Shet**
+
+GitHub: [juileeshet](https://github.com/juileeshet)
