@@ -1,113 +1,163 @@
 # AeroNexus — Airport Management System
 
-AeroNexus is a full-stack airport management and flight booking web application built using Flask and SQLite. It enables passengers to book flights, select seats, manage tickets, and access boarding passes, while airport staff handle check-ins and boarding, and administrators manage flights, schedules, users, and airport operations.
+AeroNexus is a web-based airport management system built with Flask and SQLite. It provides flight booking, passenger check-in, boarding management, flight tracking, and administrative tools through a unified interface.
 
 ## Features
 
-- **Passenger Portal:** Flight search, interactive seat selection, meal and add-on selection, ticket booking, cancellations, and digital boarding passes.
-- **Staff Dashboard:** View assigned flights, manage passenger check-ins and boarding, and export passenger manifests.
-- **Admin Dashboard:** Manage flights, delays, cancellations, staff assignments, users, and airport shops.
-- **Analytics and Reports:** Monitor bookings, revenue, seat occupancy, and system activity through dashboards, CSV exports, and audit logs.
-- **Flight Tracker:** Map-based flight tracking interface.
-- **Security:** Password hashing, session management, CSRF protection, login lockout, and role-based access control.
+### Passenger Portal
+- Register and book flights.
+- Select seats using an interactive seat map.
+- Choose meals and additional services.
+- View boarding passes and airport information.
+- Cancel bookings and review refund calculations.
+- Track flight delays and cancellations.
 
-## Technology Stack
+### Staff Portal
+- View assigned flights and passenger details.
+- Check in passengers.
+- Manage the boarding process.
 
-- **Backend:** Python, Flask
-- **Frontend:** HTML, CSS, JavaScript, Bootstrap 5, Jinja2
-- **Database:** SQLite
-- **Authentication:** bcrypt, Flask-Session
-- **Maps:** Leaflet
-- **Testing:** Python `unittest`
+### Admin Dashboard
+- Add, edit, delay, and cancel flights.
+- Manage users, airport shops, and staff assignments.
+- View audit logs.
+- Create database backups.
+- Manage flight operations and passenger bookings.
 
-## Installation and Setup
+### Flight Tracking
+- View flight information and status through an interactive flight tracker map.
 
-**1. Clone the repository**
+## Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| Python | Application logic |
+| Flask | Web framework and routing |
+| SQLite | Database management |
+| Flask-Session | Session management |
+| bcrypt | Password hashing |
+| Bootstrap 5 | Responsive user interface |
+| HTML, CSS, JavaScript | Frontend development |
+| Leaflet | Interactive maps |
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.9 or later
+- pip
+- Git
+
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/juileeshet/AeroNexus.git
-cd AeroNexus
+git clone <repository-url>
+cd AeroNexus-Git
 ```
 
-**2. Create and activate a virtual environment**
+Replace `<repository-url>` with your actual GitHub repository URL.
+
+### 2. Create a virtual environment
 
 ```bash
 python -m venv venv
 ```
 
-Windows:
+Activate it on Windows:
 
 ```powershell
 venv\Scripts\activate
 ```
 
-**3. Install dependencies**
+On macOS or Linux:
+
+```bash
+source venv/bin/activate
+```
+
+### 3. Install dependencies
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-**4. Initialize the database**
+### 4. Initialize the database
 
 ```bash
 python database/db.py init
 ```
 
-**5. Run the application**
+This initializes the database and creates sample flights and accounts.
+
+### 5. Run the application
 
 ```bash
 python main.py
 ```
 
-Open `http://127.0.0.1:5000` in your browser.
+Open the application in your browser:
 
-## Demo Credentials
+`http://127.0.0.1:5000`
+
+## Demo Accounts
 
 | Role | Username | Password |
 |---|---|---|
-| Admin | `admin` | `admin123` |
+| Administrator | `admin` | `admin123` |
 | Staff | `staff` | `staff123` |
-| Passenger | Register an account | Set during registration |
+| Passenger | Register a new account | Set during registration |
 
-Change the default admin and staff passwords before deploying the application publicly.
+These are development credentials. Change the default passwords before deploying the application.
 
-## Run Tests
+## Running Tests
+
+Run the automated test suite from the project root:
 
 ```bash
 python -m unittest discover -s tests -t .
 ```
 
+## Configuration
+
+The application supports the following environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `AERONEXUS_SECRET_KEY` | Configures the Flask session signing key |
+| `AERONEXUS_HTTPS=1` | Enables secure session cookies over HTTPS |
+| `AERONEXUS_STRICT_BOARDING=1` | Enforces check-in and boarding time windows |
+| `FLASK_DEBUG=1` | Enables Flask debug mode for local development |
+
+Keep secret keys and credentials out of version control. Debug mode should not be enabled in production.
+
 ## Project Structure
 
 ```text
-AeroNexus/
+AeroNexus-Git/
 ├── main.py
 ├── schema.py
 ├── wsgi.py
+├── configs.json
 ├── requirements.txt
 ├── database/
 │   └── db.py
 ├── templates/
-│   ├── admin_dashboard/
-│   ├── employee_dashboard/
-│   ├── passenger_dashboard/
-│   └── base.html
+│   ├── base.html
+│   ├── index.html
+│   ├── flight_tracker.html
+│   └── ...
 ├── static/
 ├── tests/
 └── docs/
 ```
 
-## Limitations
+## Future Enhancements
 
-- Flight schedules use sample data rather than a live airline inventory.
-- The airport navigation map is schematic.
-- Payments are simulated; no payment gateway is integrated.
-- The boarding-pass barcode is decorative and is not scannable.
+- Integration with real-time flight information APIs.
+- Online payment gateway integration.
+- Email and SMS booking notifications.
+- Advanced operational analytics and reporting.
 
-## Author
+## License
 
-**Juilee Shet**
-
-GitHub: [juileeshet](https://github.com/juileeshet)
-
-Repository: [AeroNexus](https://github.com/juileeshet/AeroNexus)
+No license has been specified. Add a license if you intend to distribute or permit reuse of this project.
