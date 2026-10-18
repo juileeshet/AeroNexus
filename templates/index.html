@@ -1,27 +1,29 @@
 {% extends "base.html" %}
+{% from "_sky.html" import sky_layers with context %}
 
 {% block title %}Welcome{% endblock %}
 
 {% block content %}
-<div class="hero">
-    <div class="row align-items-center g-5">
-        <div class="{{ 'col-lg-6' if featured else 'col-lg-8' }}">
+<section class="sky-hero">
+    {{ sky_layers('hero') }}
+    <div class="row align-items-center g-5 sky-hero-inner">
+        <div class="{{ 'col-lg-6' if featured else 'col-lg-8' }} hero-copy">
             {% if routes %}
-            <span class="hero-eyebrow"><i class="bi bi-broadcast"></i>
+            <div><span class="hero-eyebrow"><i class="bi bi-broadcast"></i>
                 {{ domestic_cities }} Indian {{ 'city' if domestic_cities == 1 else 'cities' }}{% if intl_cities %} &middot; {{ intl_cities }} international {{ 'hub' if intl_cities == 1 else 'hubs' }}{% endif %} &middot; {{ airline_count }} {{ 'airline' if airline_count == 1 else 'airlines' }}
-            </span>
-            {% endif %}
+            </span></div>
+            {% else %}<div></div>{% endif %}
             <h1>Book flights across India and beyond, seat by seat.</h1>
             <p class="lead">Pick your exact seat on a real cabin map, add a meal or extra baggage, and get a boarding pass with your gate and a route to it, plus the shops on the way.</p>
             <div class="d-flex flex-wrap gap-2">
-                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Book a flight</a>
-                <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg">Create free account</a>
+                <a href="{{ url_for('login') }}" class="btn btn-amber btn-lg">Book a flight</a>
+                <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-lg">Create free account</a>
             </div>
             {% if routes %}
             <div class="hero-routes">
                 {% for r in routes[:4] %}<span class="route-chip">{{ r.src_iata }} &rarr; {{ r.dst_iata }}</span>{% endfor %}
             </div>
-            {% endif %}
+            {% else %}<div></div>{% endif %}
         </div>
         {% if featured %}
         <div class="col-lg-6">
@@ -29,10 +31,14 @@
                 <div class="route-panel-label"><span>DEPARTURE</span><span>ARRIVAL</span></div>
                 <div class="route-panel-cities"><span>{{ featured.src_iata }}</span><span>{{ featured.dst_iata }}</span></div>
                 <svg viewBox="0 0 400 90" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flight path from {{ featured.source }} to {{ featured.destination }}">
-                    <path d="M 12 70 Q 200 -10 388 70" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2" stroke-dasharray="1 10" stroke-linecap="round"/>
+                    <path id="route-arc" d="M 12 70 Q 200 -10 388 70" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2" stroke-dasharray="1 10" stroke-linecap="round"/>
                     <circle cx="12" cy="70" r="5" fill="#C9972E"/>
                     <circle cx="388" cy="70" r="5" fill="#C9972E"/>
-                    <text x="55" y="41" fill="#ffffff" font-size="15" transform="rotate(-35 55 41)">&#9992;</text>
+                    <circle cx="388" cy="70" r="5" fill="none" stroke="#C9972E" stroke-width="2"><animate attributeName="r" from="5" to="16" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" from="0.8" to="0" dur="2.4s" repeatCount="indefinite"/></circle>
+                    <g>
+                        <path transform="rotate(90) scale(1.15)" fill="#FAF5EA" d="M0,-8 L3,-2 L12,2 L12,4 L3,2 L2,8 L5,10 L5,11 L0,10 L-5,11 L-5,10 L-2,8 L-3,2 L-12,4 L-12,2 L-3,-2 Z"/>
+                        <animateMotion dur="7s" repeatCount="indefinite" rotate="auto"><mpath href="#route-arc"/></animateMotion>
+                    </g>
                 </svg>
                 <div class="route-panel-meta">
                     <span>Flight <strong>{{ featured.flight_number }}</strong> &middot; {{ featured.flight_name }}</span>
@@ -42,7 +48,7 @@
         </div>
         {% endif %}
     </div>
-</div>
+</section>
 
 <div class="row mt-5 pt-3 g-4">
     <div class="col-md-3">

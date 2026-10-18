@@ -1,0 +1,36 @@
+{% macro cloud(cls) %}
+<svg class="cloud {{ cls }}" viewBox="0 0 200 90" aria-hidden="true"><g>
+    <circle cx="55" cy="58" r="26"/><circle cx="92" cy="42" r="34"/><circle cx="134" cy="52" r="28"/><circle cx="162" cy="62" r="20"/>
+    <rect x="30" y="58" width="152" height="30" rx="15"/></g></svg>
+{% endmacro %}
+
+{% macro sky_layers(mode='hero') %}
+<div class="sky sky-scene sky-scene-{{ mode }}" aria-hidden="true">
+    {% if hero_photo %}<div class="sky-photo" style="background-image: url('{{ hero_photo }}')"></div>{% endif %}
+    <div class="sky-tint"></div>
+    <div class="sky-sun"></div>
+    {% if mode != 'banner' %}
+    <svg class="sky-stars" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice">
+        {% for x, y, d in [(30,22,0),(78,60,1),(122,18,2),(168,48,3),(214,26,1),(262,66,2),(300,20,0),(348,52,3),(380,16,1),(52,100,2),(190,92,0),(330,98,3)] %}
+        <circle cx="{{ x }}" cy="{{ y }}" r="1.3" style="animation-delay: -{{ d }}s"/>
+        {% endfor %}
+    </svg>
+    {% endif %}
+    {{ cloud('cloud-a') }}{{ cloud('cloud-b') }}{{ cloud('cloud-c') }}
+    {% if mode != 'banner' %}{{ cloud('cloud-d') }}{% endif %}
+    <div class="sky-plane"><span class="contrail"></span><i class="bi bi-airplane-fill"></i></div>
+</div>
+{% endmacro %}
+
+{% macro page_banner(title, subtitle='') %}
+<div class="page-banner">
+    {{ sky_layers('banner') }}
+    <div class="page-banner-inner">
+        <div>
+            <h2>{{ title }}</h2>
+            {% if subtitle %}<p>{{ subtitle }}</p>{% endif %}
+        </div>
+        {% if caller %}<div class="page-banner-actions">{{ caller() }}</div>{% endif %}
+    </div>
+</div>
+{% endmacro %}

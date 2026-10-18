@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_sky.html" import page_banner with context %}
+{% from "_pager.html" import pager with context %}
+
+{% block title %}My schedule{% endblock %}
+
+{% block content %}
+{% call page_banner('My schedule', 'The flights an admin has assigned to you. Open one to see who is on it and who booked.') %}{% endcall %}
+
+<form method="GET" class="filter-bar mb-3 no-print">
+    <div class="input-group filter-search">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Search flight number, airline or city">
+    </div>
+    <button class="btn btn-outline-primary">Search</button>
+    {% if q %}<a href="{{ url_for('flights') }}" class="btn btn-link">Clear</a>{% endif %}
+</form>
+
+{% if flights %}
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Flight</th><th>Route</th><th>Departs</th><th>Arrives</th><th>Status</th><th>Terminal / gate</th><th>Seats sold</th><th>Checked in / boarded</th><th></th></tr></thead>
+            <tbody>
+                {% for f in flights %}
+                <tr>
+                    <td><span class="code">{{ f.flight_number }}</span><br><span class="small text-secondary">{{ f.flight_name }}</span></td>
+                    <td class="text-nowrap">{{ f.src_iata }} <i class="bi bi-arrow-right text-secondary"></i> {{ f.dst_iata }}<br><span class="small text-secondary">{{ f.source }} to {{ f.destination }}</span></td>
+                    <td class="text-nowrap">{{ f.departure }}</td>
+                    <td class="text-nowrap">{{ f.arrival }}</td>
+                    <td><span class="badge {{ f.badge }}">{{ f.status }}</span>{% if f.status == 'Delayed' %}<br><span class="small text-secondary">+{{ f.delay_minutes }} min</span>{% endif %}</td>
+                    <td class="code text-nowrap">T{{ f.terminal }} / {{ f.gate }}</td>
+                    <td>{{ f.sold }} / {{ total_seats }}</td>
+                    <td class="text-nowrap">{{ f.checked_in }} / {{ f.boarded }} <span class="small text-secondary">of {{ f.sold }}</span></td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('staff_flight_detail', f_id=f.f_id) }}"><i class="bi bi-people"></i> Passengers</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('manifest', f_id=f.f_id) }}" title="Download manifest"><i class="bi bi-download"></i></a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{ pager(pg) }}
+{% elif q %}
+<div class="empty-state"><i class="bi bi-search"></i><h5>No flights match</h5><p class="text-secondary mb-0">Try a different search.</p></div>
+{% else %}
+<div class="empty-state"><i class="bi bi-airplane"></i><h5>No flights assigned to you</h5><p class="text-secondary mb-0">An admin assigns flights to staff. Check back soon.</p></div>
+{% endif %}
+{% endblock %}

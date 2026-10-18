@@ -23,7 +23,7 @@
         <div class="class-band band-{{ band.name|lower }}">
             <div class="class-title"><span>{{ band.name }} Class</span></div>
             {% for row in band.rows %}
-            <div class="seat-row{% if row.wing %} wing-row{% endif %}{% if row.exit %} exit-row{% endif %}">
+            <div class="seat-row{% if row.wing %} wing-row{% endif %}{% if row.exit %} exit-row{% endif %}" style="--r: {{ row.number }}">
                 {% if row.exit %}<span class="exit-flag exit-left"><i class="bi bi-box-arrow-left"></i> Exit</span>{% endif %}
                 {% for seat in row.seats %}
                     {% if seat.col == 'D' %}<div class="aisle-gap"><span class="row-num">{{ row.number }}</span></div>{% endif %}

@@ -10,6 +10,9 @@ import re
 import json
 import math
 import hashlib
+import hmac
+import secrets
+import time
 import logging
 from functools import wraps
 from contextlib import contextmanager
@@ -22,11 +25,37 @@ import schema
 DB = 'database.db'
 APP_NAME = 'AeroNexus'
 
+def load_secret_key():
+    """Secret key from AERONEXUS_SECRET_KEY, else a random one saved in .secret_key (git-ignored)."""
+    key = os.environ.get('AERONEXUS_SECRET_KEY')
+    if key:
+        return key
+    try:
+        with open('.secret_key') as fh:
+            key = fh.read().strip()
+        if key:
+            return key
+    except OSError:
+        pass
+    key = secrets.token_hex(32)
+    try:
+        with open('.secret_key', 'w') as fh:
+            fh.write(key)
+        os.chmod('.secret_key', 0o600)
+    except OSError:
+        pass
+    return key
+
+
 app = Flask(__name__)
-app.secret_key = 'secret_key'
+app.secret_key = load_secret_key()
 
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+if os.environ.get('AERONEXUS_HTTPS') == '1':
+    app.config['SESSION_COOKIE_SECURE'] = True
 Session(app)
 
 app.logger.setLevel(logging.ERROR)
@@ -49,6 +78,11 @@ TAX_RATE = 0.10
 INCLUDED_MEAL_CLASSES = ('First', 'Business')
 BAGGAGE_KG = {'Economy': (15, 7), 'Business': (30, 10), 'First': (40, 12)}  # (checked, cabin)
 BOARDING_OPENS_MIN = 45
+UPCOMING = ('Scheduled', 'Boarding', 'Delayed')
+# Real airports only allow check-in/boarding inside a time window. For demos the windows are
+# off by default; set AERONEXUS_STRICT_BOARDING=1 to enforce them.
+STRICT_WINDOWS = os.environ.get('AERONEXUS_STRICT_BOARDING') == '1'
+CHECKIN_OPENS_HOURS = 24
 GATE_CLOSES_MIN = 20
 REFUND_RULES = [(48, 0.90), (4, 0.50)]  # (hours before departure, refund share)
 TOTAL_SEATS = sum((b['last_row'] - b['first_row'] + 1) * len(SEAT_COLS) for b in CLASS_BANDS)
@@ -90,6 +124,7 @@ def build_layout():
 def get_db():
     conn = sqlite3.connect(DB, timeout=10)
     conn.row_factory = sqlite3.Row
+    conn.execute('PRAGMA foreign_keys = ON')
     try:
         yield conn
         conn.commit()
@@ -133,7 +168,10 @@ def humanize(ts):
     return f'{secs // 86400} d ago'
 
 
-def flight_status(dep, arr, now=None):
+def flight_status(dep, arr, now=None, ops=None):
+    """Status from the clock, overridden by an admin's DELAYED or CANCELLED marker."""
+    if ops == 'CANCELLED':
+        return 'Cancelled'
     now = now or datetime.now()
     dep_dt, arr_dt = parse_dt(dep), parse_dt(arr)
     if now >= arr_dt:
@@ -142,10 +180,11 @@ def flight_status(dep, arr, now=None):
         return 'In Air'
     if now >= dep_dt - timedelta(minutes=BOARDING_OPENS_MIN):
         return 'Boarding'
-    return 'Scheduled'
+    return 'Delayed' if ops == 'DELAYED' else 'Scheduled'
 
 
-STATUS_BADGE = {'Scheduled': 'bg-info', 'Boarding': 'bg-warning', 'In Air': 'bg-success', 'Landed': 'bg-secondary'}
+STATUS_BADGE = {'Scheduled': 'bg-info', 'Boarding': 'bg-warning', 'In Air': 'bg-success', 'Landed': 'bg-secondary',
+                'Delayed': 'bg-warning text-dark', 'Cancelled': 'bg-danger'}
 
 
 def airport_for(conn, city):
@@ -195,6 +234,8 @@ def refund_for(ticket, dep_dt):
     """Return (allowed, amount, share, message)."""
     if ticket['status'] == 'CANCELLED':
         return False, 0.0, 0.0, 'This ticket is already cancelled.'
+    if ticket.get('boarded_at'):
+        return False, 0.0, 0.0, 'You have already boarded this flight.'
     hours = (dep_dt - datetime.now()).total_seconds() / 3600
     if hours <= 0:
         return False, 0.0, 0.0, 'This flight has already departed.'
@@ -328,20 +369,71 @@ def flight_rows(conn):
     sold = {r['f_id']: r['n'] for r in conn.execute(
         "SELECT f_id, COUNT(*) n FROM tickets WHERE COALESCE(status,'CONFIRMED')='CONFIRMED' GROUP BY f_id")}
     airports = {r['city']: dict(r) for r in conn.execute('SELECT * FROM airports')}
+    flow = {r['f_id']: (r['c'] or 0, r['b'] or 0) for r in conn.execute(
+        '''SELECT f_id, SUM(checked_in_at IS NOT NULL) c, SUM(boarded_at IS NOT NULL) b FROM tickets
+           WHERE COALESCE(status,'CONFIRMED')='CONFIRMED' GROUP BY f_id''')}
     for f in flights:
+        f['checked_in'], f['boarded'] = flow.get(f['f_id'], (0, 0))
         src = airports.get(f['source']) or airport_for(conn, f['source'])
         dst = airports.get(f['destination']) or airport_for(conn, f['destination'])
         f['src_iata'], f['dst_iata'] = src['iata'], dst['iata']
         f['domestic'] = is_domestic(src, dst)
         try:
-            f['status'] = flight_status(f['departure'], f['arrival'])
+            f['status'] = flight_status(f['departure'], f['arrival'], ops=f.get('ops_status'))
         except ValueError:
             f['status'] = 'Scheduled'
         f['badge'] = STATUS_BADGE[f['status']]
         f['sold'] = sold.get(f['f_id'], 0)
         f['seats_left'] = TOTAL_SEATS - f['sold']
-        f['bookable'] = f['status'] in ('Scheduled', 'Boarding') and f['seats_left'] > 0
+        f['bookable'] = f['status'] in UPCOMING and f['seats_left'] > 0
     return flights
+
+
+def audit(conn, action, target='', detail=''):
+    """Record who did what. Pass the caller's open connection so it joins the same transaction."""
+    try:
+        conn.execute('INSERT INTO audit_log (ts, actor, role, action, target, detail) VALUES (?,?,?,?,?,?)',
+                     (now_str(), session.get('username') or '-', session.get('role') or '-', action,
+                      str(target), str(detail)[:500]))
+    except sqlite3.Error as e:
+        app.logger.error(f'audit: {e}')
+
+
+def audit_now(action, target='', detail='', actor=None, role=None):
+    """Audit from outside a transaction (own connection, commits immediately)."""
+    try:
+        with sqlite3.connect(DB, timeout=10) as conn:
+            conn.execute('INSERT INTO audit_log (ts, actor, role, action, target, detail) VALUES (?,?,?,?,?,?)',
+                         (now_str(), actor or session.get('username') or '-', role or session.get('role') or '-',
+                          action, str(target), str(detail)[:500]))
+    except sqlite3.Error as e:
+        app.logger.error(f'audit: {e}')
+
+
+def paginate(items, per_page=12):
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
+    pages = max(math.ceil(len(items) / per_page), 1)
+    page = min(page, pages)
+    return items[(page - 1) * per_page: page * per_page], {'page': page, 'pages': pages, 'total': len(items)}
+
+
+def page_url(n):
+    args = request.args.to_dict()
+    args['page'] = n
+    return url_for(request.endpoint, **{**args, **(request.view_args or {})})
+
+
+def assigned_flight_ids(conn, username):
+    """Flights an admin has put on this staff member's schedule."""
+    return {r['f_id'] for r in conn.execute(
+        'SELECT f_id FROM staff_assignments WHERE staff_username = ?', (username,))}
+
+
+def staff_can_see(conn, f_id):
+    """True for admins, and for staff only on flights assigned to them."""
+    if session.get('role') == 'ADMIN':
+        return True
+    return f_id in assigned_flight_ids(conn, session.get('username'))
 
 
 @app.before_request
@@ -353,9 +445,72 @@ def _prepare_schema():
             app.logger.error(f'schema: {e}')
 
 
+def find_hero_photo():
+    """Use static/images/hero-bg.(jpg|jpeg|webp|png) as the sky backdrop when the owner adds one."""
+    for name in ('hero-bg.jpg', 'hero-bg.jpeg', 'hero-bg.webp', 'hero-bg.png'):
+        if os.path.exists(os.path.join(app.static_folder, 'images', name)):
+            return url_for('static', filename=f'images/{name}')
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Security: CSRF protection, security headers, login throttling (no extra packages)
+# ---------------------------------------------------------------------------
+def csrf_token():
+    if '_csrf' not in session:
+        session['_csrf'] = secrets.token_hex(16)
+    return session['_csrf']
+
+
+@app.before_request
+def _csrf_protect():
+    if request.method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        sent = request.form.get('csrf_token') or request.headers.get('X-CSRF-Token') or ''
+        expected = session.get('_csrf', '')
+        if not expected or not hmac.compare_digest(str(sent), str(expected)):
+            if request.is_json or 'X-CSRF-Token' in request.headers:
+                return jsonify({'status': 'error', 'message': 'Security check failed. Reload the page and try again.'}), 400
+            flash('Your session expired. Please try again.', 'warning')
+            return redirect(url_for('index'))
+
+
+_POST_FORM = re.compile(r'(<form\b[^>]*\bmethod\s*=\s*["\']?post["\']?[^>]*>)', re.I)
+
+
+@app.after_request
+def _secure_response(resp):
+    resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    resp.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+    resp.headers.setdefault('Referrer-Policy', 'same-origin')
+    if resp.mimetype == 'text/html' and not resp.direct_passthrough:
+        body = resp.get_data(as_text=True)
+        if '<form' in body.lower():
+            hidden = f'<input type="hidden" name="csrf_token" value="{csrf_token()}">'
+            resp.set_data(_POST_FORM.sub(lambda m: m.group(1) + hidden, body))
+    return resp
+
+
+LOGIN_FAILS = {}
+MAX_FAILS, LOCK_SECONDS = 5, 600
+
+
+def login_locked(username):
+    key = (request.remote_addr, (username or '').lower())
+    fails = [t for t in LOGIN_FAILS.get(key, []) if time.time() - t < LOCK_SECONDS]
+    LOGIN_FAILS[key] = fails
+    return len(fails) >= MAX_FAILS
+
+
+def login_failed(username):
+    LOGIN_FAILS.setdefault((request.remote_addr, (username or '').lower()), []).append(time.time())
+
+
+LOCKED_MSG = 'Too many failed attempts. Please wait 10 minutes and try again.'
+
+
 @app.context_processor
 def inject_globals():
-    return {'APP_NAME': APP_NAME, 'current_year': datetime.now().year}
+    return {'APP_NAME': APP_NAME, 'csrf_token': csrf_token, 'page_url': page_url, 'current_year': datetime.now().year, 'hero_photo': find_hero_photo()}
 
 
 # ---------------------------------------------------------------------------
@@ -387,7 +542,7 @@ def landing_data():
             airports = {r['city']: r['country'] for r in conn.execute('SELECT city, country FROM airports')}
     except sqlite3.Error:
         return data
-    upcoming = [f for f in flights if f['status'] in ('Scheduled', 'Boarding')] or flights
+    upcoming = [f for f in flights if f['status'] in UPCOMING] or flights
     data['airline_count'] = len({f['flight_name'] for f in flights})
     cities = {f['source'] for f in flights} | {f['destination'] for f in flights}
     data['domestic_cities'] = sum(1 for c in cities if airports.get(c) == 'India')
@@ -430,10 +585,11 @@ def passenger_home(conn):
 
 
 def staff_home(conn):
-    flights = flight_rows(conn)
+    mine = assigned_flight_ids(conn, session['username'])
+    flights = [f for f in flight_rows(conn) if f['f_id'] in mine]
     today = datetime.now().strftime('%Y-%m-%d')
     today_flights = [f for f in flights if f['departure'].startswith(today)]
-    next_up = [f for f in flights if f['status'] in ('Scheduled', 'Boarding')][:6]
+    next_up = [f for f in flights if f['status'] in UPCOMING][:6]
     sold_total = sum(f['sold'] for f in flights)
     return render_template('employee_dashboard/index.html', flights=flights, today_flights=today_flights,
                            next_up=next_up, sold_total=sold_total, total_seats=TOTAL_SEATS,
@@ -442,7 +598,7 @@ def staff_home(conn):
 
 def admin_home(conn):
     flights = flight_rows(conn)
-    upcoming = [f for f in flights if f['status'] in ('Scheduled', 'Boarding')]
+    upcoming = [f for f in flights if f['status'] in UPCOMING]
     users = sum(conn.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0] for t in ('passengers', 'employees', 'admin'))
     confirmed = conn.execute("SELECT COUNT(*) FROM tickets WHERE COALESCE(status,'CONFIRMED')='CONFIRMED'").fetchone()[0]
     cancelled = conn.execute("SELECT COUNT(*) FROM tickets WHERE status='CANCELLED'").fetchone()[0]
@@ -492,16 +648,20 @@ def login():
             return redirect(url_for('index'))
         username = request.form['username']
         password = request.form['password']
+        if login_locked(username):
+            return render_template('passenger/login.html', error_message=LOCKED_MSG)
         with sqlite3.connect(DB) as conn:
             c = conn.cursor()
             c.execute('''SELECT * FROM passengers WHERE username = ?''', (username,))
             user = c.fetchone()
             c.close()
         if user and bcrypt.checkpw(password.encode('utf-8'), user[2]):
+            session.clear()
             session['loggedin'] = True
             session['username'] = user[1]
             session['role'] = 'PASSENGER'
             return redirect(url_for('index'))
+        login_failed(username)
         return render_template('passenger/login.html', error_message='Invalid username or password')
     if 'loggedin' in session:
         return redirect(url_for('index'))
@@ -548,16 +708,22 @@ def admin_login():
             return redirect(url_for('index'))
         username = request.form['username']
         password = request.form['password']
+        if login_locked(username):
+            audit_now('login_locked', username, actor=username, role='ADMIN')
+            return render_template('admin/login.html', message=LOCKED_MSG)
         with sqlite3.connect(DB) as conn:
             c = conn.cursor()
             c.execute('''SELECT * FROM admin WHERE username = ?''', (username,))
             user = c.fetchone()
             c.close()
         if user and bcrypt.checkpw(password.encode('utf-8'), user[2]):
+            session.clear()
             session['loggedin'] = True
             session['username'] = user[1]
             session['role'] = 'ADMIN'
+            audit_now('login', user[1])
             return redirect(url_for('index'))
+        login_failed(username)
         return render_template('admin/login.html', message='Invalid username or password')
     if 'loggedin' in session:
         return redirect(url_for('index'))
@@ -571,16 +737,22 @@ def employee_login():
             return redirect(url_for('index'))
         username = request.form['username']
         password = request.form['password']
+        if login_locked(username):
+            audit_now('login_locked', username, actor=username, role='STAFF')
+            return render_template('employee/login.html', message=LOCKED_MSG)
         with sqlite3.connect(DB) as conn:
             c = conn.cursor()
             c.execute('''SELECT * FROM employees WHERE username = ?''', (username,))
             user = c.fetchone()
             c.close()
         if user and bcrypt.checkpw(password.encode('utf-8'), user[2]):
+            session.clear()
             session['loggedin'] = True
             session['username'] = user[1]
             session['role'] = 'STAFF'
+            audit_now('login', user[1])
             return redirect(url_for('index'))
+        login_failed(username)
         return render_template('employee/login.html', message='Invalid username or password')
     if 'loggedin' in session:
         return redirect(url_for('index'))
@@ -590,9 +762,18 @@ def employee_login():
 # ---------------------------------------------------------------------------
 # Flights
 # ---------------------------------------------------------------------------
+def flight_search(rows, q):
+    q = (q or '').strip().lower()
+    if not q:
+        return rows
+    return [f for f in rows if q in ' '.join(str(f.get(k) or '') for k in (
+        'flight_number', 'flight_name', 'source', 'destination', 'src_iata', 'dst_iata')).lower()]
+
+
 @app.route('/flights')
 @login_required()
 def flights():
+    q = request.args.get('q', '')
     with get_db() as conn:
         rows = flight_rows(conn)
         if session['role'] == 'ADMIN':
@@ -602,13 +783,64 @@ def flights():
                 cls.setdefault(r['f_id'], {})[r['class']] = r['n']
             rev = {r['f_id']: r['v'] for r in conn.execute(
                 'SELECT f_id, SUM(price - COALESCE(refund_amount,0)) v FROM tickets GROUP BY f_id')}
+            crew = {}
+            for r in conn.execute('''SELECT a.f_id, COALESCE(e.name, a.staff_username) AS n
+                                     FROM staff_assignments a LEFT JOIN employees e ON e.username = a.staff_username
+                                     ORDER BY n'''):
+                crew.setdefault(r['f_id'], []).append(r['n'])
             for f in rows:
+                f['crew'] = crew.get(f['f_id'], [])
                 f['by_class'] = cls.get(f['f_id'], {})
                 f['revenue'] = rev.get(f['f_id'], 0) or 0
                 f['load'] = round(f['sold'] / TOTAL_SEATS * 100)
+            status = request.args.get('status', '')
+            rows = flight_search(rows, q)
+            if status:
+                rows = [f for f in rows if f['status'] == status]
+            rows, pg = paginate(rows, 12)
             return render_template('admin_dashboard/flights.html', flights=rows, class_capacity=CLASS_CAPACITY,
-                                   total_seats=TOTAL_SEATS)
+                                   total_seats=TOTAL_SEATS, pg=pg, q=q, status=status, statuses=list(STATUS_BADGE))
+        if session['role'] == 'STAFF':
+            mine = assigned_flight_ids(conn, session['username'])
+            rows = flight_search([f for f in rows if f['f_id'] in mine], q)
+            rows, pg = paginate(rows, 10)
+            return render_template('employee_dashboard/flights.html', flights=rows, total_seats=TOTAL_SEATS, pg=pg, q=q)
     return render_template('passenger_dashboard/flights.html', flights=rows)
+
+
+@app.route('/staff/flight/<int:f_id>')
+@login_required('STAFF', 'ADMIN')
+def staff_flight_detail(f_id):
+    """Read-only view: who is on a flight and who booked it (staff and admin)."""
+    with get_db() as conn:
+        flight = next((f for f in flight_rows(conn) if f['f_id'] == f_id), None)
+        if not flight:
+            abort(404)
+        if not staff_can_see(conn, f_id):
+            flash('That flight is not on your schedule.', 'warning')
+            return redirect(url_for('flights'))
+        bookings = []
+        for r in conn.execute('''SELECT t.t_id, t.seat, t.class, t.meal, t.breakdown, t.passenger_name,
+                                      t.passenger_age, t.passenger_gender, t.created_at, t.p_id,
+                                      t.checked_in_at, t.boarded_at,
+                                      p.name AS booker_name, p.phone AS booker_phone, p.email AS booker_email
+                               FROM tickets t LEFT JOIN passengers p ON p.username = t.p_id
+                               WHERE t.f_id = ? AND COALESCE(t.status,'CONFIRMED')='CONFIRMED'
+                               ORDER BY t.seat''', (f_id,)):
+            b = dict(r)
+            b['ref'] = f"TKT-{b['t_id']:04d}"
+            b['pnr'] = pnr_for(b['t_id'])
+            b['addons'] = ', '.join(a['name'] for a in json.loads(b['breakdown'] or '{}').get('addons', []))
+            bookings.append(b)
+    q = request.args.get('q', '').strip().lower()
+    total_booked = len(bookings)
+    if q:
+        bookings = [b for b in bookings if q in ' '.join(str(b.get(k) or '') for k in (
+            'passenger_name', 'seat', 'p_id', 'booker_name', 'pnr', 'ref', 'class')).lower()]
+    bookings, pg = paginate(bookings, 20)
+    return render_template('employee_dashboard/flight_passengers.html', flight=flight, bookings=bookings,
+                           total_seats=TOTAL_SEATS, pg=pg, q=q, total_booked=total_booked,
+                           ops_open=flight['status'] in UPCOMING)
 
 
 @app.route('/admin/flight/<int:f_id>')
@@ -691,7 +923,7 @@ def load_trip(conn, t_id):
 def tickets():
     with get_db() as conn:
         rows = conn.execute('''SELECT t.*, f.flight_number, f.flight_name, f.source, f.destination, f.departure,
-                                      f.arrival, f.terminal, f.gate
+                                      f.arrival, f.terminal, f.gate, f.ops_status, f.ops_reason, f.delay_minutes
                                FROM tickets t LEFT JOIN flights f ON f.f_id = t.f_id
                                WHERE t.p_id = ? ORDER BY t.t_id DESC''', (session['username'],)).fetchall()
         trips = []
@@ -704,7 +936,7 @@ def tickets():
                 t['dep_dt'] = dep
                 t['src_iata'] = airport_for(conn, t['source'])['iata']
                 t['dst_iata'] = airport_for(conn, t['destination'])['iata']
-                t['flight_state'] = flight_status(t['departure'], t['arrival'])
+                t['flight_state'] = flight_status(t['departure'], t['arrival'], ops=t.get('ops_status'))
                 allowed, amount, share, why = refund_for(t, dep)
                 t['can_cancel'], t['refund_amount_quote'], t['refund_share'] = allowed, amount, int(share * 100)
             else:
@@ -741,7 +973,7 @@ def boarding_pass(t_id):
         'group': boarding_group(info, addon_names), 'breakdown': breakdown, 'addon_names': addon_names,
         'checked_kg': checked + extra_kg, 'cabin_kg': cabin, 'extra_kg': extra_kg,
         'barcode': barcode_bars(f'{pnr}{t["t_id"]}{f["flight_number"]}{t["seat"]}'),
-        'state': flight_status(f['departure'], f['arrival']), 'can_cancel': allowed,
+        'state': flight_status(f['departure'], f['arrival'], ops=f.get('ops_status')), 'can_cancel': allowed,
         'refund_amount': refund_amount, 'refund_share': int(share * 100),
         'is_domestic': is_domestic(src, dst),
         'opens_min': BOARDING_OPENS_MIN, 'close_min': GATE_CLOSES_MIN,
@@ -806,7 +1038,7 @@ def get_occupied_seats(f_id):
 
 
 # ---------------------------------------------------------------------------
-# Staff: flights, shops, manifests
+# Admin: flights and shops. Staff: read-only schedule and passenger details
 # ---------------------------------------------------------------------------
 def read_flight_form(data):
     number, name = data['flight_number'].strip(), data['flight_name'].strip()
@@ -825,14 +1057,14 @@ def read_flight_form(data):
 
 
 @app.route('/add_flight', methods=['GET', 'POST'])
-@login_required('STAFF')
+@login_required('ADMIN')
 def add_flight():
     if request.method == 'POST':
         try:
             number, name, source, dest, dep, arr, price = read_flight_form(request.form)
         except (ValueError, KeyError) as e:
             flash(str(e) if isinstance(e, ValueError) else 'Please complete the form.', 'danger')
-            return render_template('employee_dashboard/add_flight.html', form=request.form)
+            return render_template('admin_dashboard/add_flight.html', form=request.form)
         with get_db() as conn:
             cur = conn.execute('''INSERT INTO flights (flight_number, flight_name, source, destination, departure,
                                   arrival, price, terminal, gate, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)''',
@@ -840,24 +1072,28 @@ def add_flight():
                                 request.form.get('terminal', '').strip(), request.form.get('gate', '').strip(),
                                 now_str()))
             schema.assign_missing_gates(conn.cursor())
+            audit(conn, 'flight_add', number, f'{source} to {dest}, departs {dep}, price {price:g}')
             conn.commit()
         flash(f'Flight {number} added.', 'success')
         return redirect(url_for('flights'))
     with get_db() as conn:
         cities = [r['city'] for r in conn.execute('SELECT city FROM airports ORDER BY city')]
-    return render_template('employee_dashboard/add_flight.html', form={}, cities=cities)
+    return render_template('admin_dashboard/add_flight.html', form={}, cities=cities)
 
 
 @app.route('/delete_flight/<int:f_id>', methods=['POST'])
-@login_required('STAFF')
+@login_required('ADMIN')
 def delete_flight(f_id):
     with get_db() as conn:
-        n = conn.execute("SELECT COUNT(*) FROM tickets WHERE f_id=? AND COALESCE(status,'CONFIRMED')='CONFIRMED'",
-                         (f_id,)).fetchone()[0]
+        n = conn.execute('SELECT COUNT(*) FROM tickets WHERE f_id=?', (f_id,)).fetchone()[0]
+        row = conn.execute('SELECT flight_number FROM flights WHERE f_id=?', (f_id,)).fetchone()
         if n:
-            flash(f'This flight has {n} confirmed booking(s) and cannot be deleted.', 'danger')
-        else:
+            flash(f'This flight has {n} booking(s) on record and cannot be deleted. '
+                  'Cancel the flight instead so passengers are refunded.', 'danger')
+        elif row:
             conn.execute('DELETE FROM flights WHERE f_id = ?', (f_id,))
+            conn.execute('DELETE FROM staff_assignments WHERE f_id = ?', (f_id,))
+            audit(conn, 'flight_delete', row['flight_number'])
             conn.commit()
             flash('Flight deleted.', 'success')
     return redirect(url_for('flights'))
@@ -865,7 +1101,7 @@ def delete_flight(f_id):
 
 @app.route('/edit_flight/<int:f_id>', methods=['POST'])
 def edit_flight(f_id):
-    if not json_role_check('STAFF'):
+    if not json_role_check('ADMIN'):
         return jsonify({'status': 'error', 'message': 'Unauthorized'})
     data = request.get_json(silent=True)
     if not data:
@@ -878,6 +1114,7 @@ def edit_flight(f_id):
                          (number, name, source, dest, dep, arr, price,
                           str(data.get('terminal', '')).strip(), str(data.get('gate', '')).strip(), f_id))
             schema.assign_missing_gates(conn.cursor())
+            audit(conn, 'flight_edit', number, f'{source} to {dest}, departs {dep}, price {price:g}')
             conn.commit()
         return jsonify({'status': 'success', 'message': 'Flight updated successfully'})
     except (ValueError, KeyError) as e:
@@ -886,18 +1123,18 @@ def edit_flight(f_id):
         return jsonify({'status': 'error', 'message': str(e)})
 
 
-@app.route('/staff/shops')
-@login_required('STAFF')
-def staff_shops():
+@app.route('/admin/shops')
+@login_required('ADMIN')
+def admin_shops():
     with get_db() as conn:
         shops = [dict(r) for r in conn.execute('SELECT * FROM airport_shops ORDER BY city, zone, pos')]
         cities = [r['city'] for r in conn.execute('SELECT city FROM airports ORDER BY city')]
-    return render_template('employee_dashboard/shops.html', shops=shops, cities=cities)
+    return render_template('admin_dashboard/shops.html', shops=shops, cities=cities)
 
 
-@app.route('/staff/shops/add', methods=['POST'])
-@login_required('STAFF')
-def staff_shop_add():
+@app.route('/admin/shops/add', methods=['POST'])
+@login_required('ADMIN')
+def admin_shop_add():
     try:
         name, city = request.form['name'].strip(), request.form['city'].strip()
         category, hours = request.form['category'].strip(), request.form['hours'].strip() or '24 hours'
@@ -910,21 +1147,25 @@ def staff_shop_add():
                 raise ValueError
             conn.execute('INSERT INTO airport_shops (city, name, category, zone, pos, hours) VALUES (?,?,?,?,?,?)',
                          (city, name, category, zone, pos, hours))
+            audit(conn, 'shop_add', name, f'{city}, {category}, {zone}')
             conn.commit()
         flash(f'{name} added to {city}.', 'success')
     except (ValueError, KeyError):
         flash('Please fill in the shop details correctly (position must be 0 to 100).', 'danger')
-    return redirect(url_for('staff_shops'))
+    return redirect(url_for('admin_shops'))
 
 
-@app.route('/staff/shops/delete/<int:shop_id>', methods=['POST'])
-@login_required('STAFF')
-def staff_shop_delete(shop_id):
+@app.route('/admin/shops/delete/<int:shop_id>', methods=['POST'])
+@login_required('ADMIN')
+def admin_shop_delete(shop_id):
     with get_db() as conn:
+        gone = conn.execute('SELECT name, city FROM airport_shops WHERE id = ?', (shop_id,)).fetchone()
         conn.execute('DELETE FROM airport_shops WHERE id = ?', (shop_id,))
+        if gone:
+            audit(conn, 'shop_delete', gone['name'], gone['city'])
         conn.commit()
     flash('Shop removed.', 'success')
-    return redirect(url_for('staff_shops'))
+    return redirect(url_for('admin_shops'))
 
 
 def csv_response(filename, header, rows):
@@ -936,6 +1177,182 @@ def csv_response(filename, header, rows):
                     headers={'Content-Disposition': f'attachment; filename={filename}'})
 
 
+@app.route('/admin/flight/<int:f_id>/staff', methods=['GET', 'POST'])
+@login_required('ADMIN')
+def assign_staff(f_id):
+    with get_db() as conn:
+        flight = next((f for f in flight_rows(conn) if f['f_id'] == f_id), None)
+        if not flight:
+            abort(404)
+        staff = [dict(r) for r in conn.execute('SELECT id, username, name FROM employees ORDER BY name, username')]
+        if request.method == 'POST':
+            valid = {s['username'] for s in staff}
+            chosen = [u for u in request.form.getlist('staff') if u in valid]
+            conn.execute('DELETE FROM staff_assignments WHERE f_id = ?', (f_id,))
+            conn.executemany('INSERT OR IGNORE INTO staff_assignments (staff_username, f_id) VALUES (?, ?)',
+                             [(u, f_id) for u in chosen])
+            audit(conn, 'staff_assign', flight['flight_number'], ', '.join(chosen) or 'no staff')
+            conn.commit()
+            flash(f"{len(chosen)} staff member{'' if len(chosen) == 1 else 's'} assigned to {flight['flight_number']}.", 'success')
+            return redirect(url_for('flights'))
+        current = {r['staff_username'] for r in conn.execute(
+            'SELECT staff_username FROM staff_assignments WHERE f_id = ?', (f_id,))}
+    return render_template('admin_dashboard/assign_staff.html', flight=flight, staff=staff, current=current)
+
+
+@app.route('/admin/flight/<int:f_id>/status', methods=['GET', 'POST'])
+@login_required('ADMIN')
+def flight_ops(f_id):
+    """Mark a flight delayed, clear a delay, or cancel it (cancelling refunds every booking in full)."""
+    with get_db() as conn:
+        row = conn.execute('SELECT * FROM flights WHERE f_id = ?', (f_id,)).fetchone()
+        if not row:
+            abort(404)
+        flight = next(f for f in flight_rows(conn) if f['f_id'] == f_id)
+        booked = conn.execute("""SELECT COUNT(*) n, COALESCE(SUM(price), 0) v FROM tickets
+                                 WHERE f_id = ? AND COALESCE(status,'CONFIRMED') = 'CONFIRMED'""", (f_id,)).fetchone()
+        if request.method == 'POST':
+            action = request.form.get('action')
+            reason = (request.form.get('reason') or '').strip()[:200]
+            number = row['flight_number']
+            if flight['status'] not in UPCOMING:
+                flash(f"A flight that is {flight['status'].lower()} can no longer be changed.", 'warning')
+                return redirect(url_for('flights'))
+            if action == 'delay':
+                try:
+                    minutes = int(request.form.get('minutes', ''))
+                except ValueError:
+                    minutes = 0
+                if not 5 <= minutes <= 1440:
+                    flash('Enter a delay between 5 and 1440 minutes.', 'danger')
+                    return redirect(url_for('flight_ops', f_id=f_id))
+                dep = parse_dt(row['departure']) + timedelta(minutes=minutes)
+                arr = parse_dt(row['arrival']) + timedelta(minutes=minutes)
+                conn.execute('''UPDATE flights SET departure = ?, arrival = ?, ops_status = 'DELAYED', ops_reason = ?,
+                                delay_minutes = COALESCE(delay_minutes, 0) + ?,
+                                orig_departure = COALESCE(orig_departure, ?), orig_arrival = COALESCE(orig_arrival, ?)
+                                WHERE f_id = ?''',
+                             (dep.strftime('%Y-%m-%d %H:%M'), arr.strftime('%Y-%m-%d %H:%M'), reason, minutes,
+                              row['departure'], row['arrival'], f_id))
+                conn.execute('UPDATE tickets SET travel_date = ? WHERE f_id = ?', (dep.strftime('%Y-%m-%d'), f_id))
+                audit(conn, 'flight_delay', number, f'+{minutes} min, new departure {dep:%Y-%m-%d %H:%M}. {reason}')
+                flash(f'{number} delayed by {minutes} minutes. New departure {dep:%d %b %H:%M}.', 'success')
+            elif action == 'clear':
+                if row['ops_status'] != 'DELAYED' or not row['orig_departure']:
+                    flash('This flight is not delayed.', 'warning')
+                    return redirect(url_for('flight_ops', f_id=f_id))
+                conn.execute('''UPDATE flights SET departure = orig_departure, arrival = orig_arrival, ops_status = NULL,
+                                ops_reason = NULL, delay_minutes = 0, orig_departure = NULL, orig_arrival = NULL
+                                WHERE f_id = ?''', (f_id,))
+                conn.execute('UPDATE tickets SET travel_date = ? WHERE f_id = ?', (row['orig_departure'][:10], f_id))
+                audit(conn, 'flight_delay_clear', number, 'back to original times')
+                flash(f'{number} is back on its original schedule.', 'success')
+            elif action == 'cancel':
+                if request.form.get('confirm') != 'yes':
+                    flash('Tick the confirmation box to cancel the flight.', 'danger')
+                    return redirect(url_for('flight_ops', f_id=f_id))
+                conn.execute("""UPDATE tickets SET status = 'CANCELLED', refund_amount = price, cancelled_at = ?
+                                WHERE f_id = ? AND COALESCE(status,'CONFIRMED') = 'CONFIRMED'""", (now_str(), f_id))
+                conn.execute("UPDATE flights SET ops_status = 'CANCELLED', ops_reason = ? WHERE f_id = ?", (reason, f_id))
+                audit(conn, 'flight_cancel', number,
+                      f"{booked['n']} booking(s) refunded in full (\u20b9{booked['v']:,.0f}). {reason}")
+                flash(f"{number} cancelled. {booked['n']} booking(s) refunded in full "
+                      f"(\u20b9{booked['v']:,.0f}).", 'success')
+            else:
+                flash('Choose an action.', 'danger')
+                return redirect(url_for('flight_ops', f_id=f_id))
+            conn.commit()
+            return redirect(url_for('flights'))
+    return render_template('admin_dashboard/flight_status.html', flight=flight, row=dict(row), booked=booked)
+
+
+@app.route('/staff/ticket/<int:t_id>/<action>', methods=['POST'])
+@login_required('STAFF', 'ADMIN')
+def ticket_ops(t_id, action):
+    """Check a passenger in, board them, or undo the last step."""
+    if action not in ('checkin', 'board', 'undo'):
+        abort(404)
+    with get_db() as conn:
+        t = conn.execute('SELECT * FROM tickets WHERE t_id = ?', (t_id,)).fetchone()
+        if not t:
+            abort(404)
+        back = redirect(url_for('staff_flight_detail', f_id=t['f_id'], q=request.form.get('q') or None,
+                                page=request.form.get('page') or None))
+        if not staff_can_see(conn, t['f_id']):
+            flash('That flight is not on your schedule.', 'warning')
+            return redirect(url_for('flights'))
+        f = next((x for x in flight_rows(conn) if x['f_id'] == t['f_id']), None)
+        if (t['status'] or 'CONFIRMED') != 'CONFIRMED':
+            flash('That booking is cancelled.', 'warning')
+            return back
+        if not f or f['status'] not in UPCOMING:
+            flash('Check-in and boarding are closed for this flight.', 'warning')
+            return back
+        label = f"{t['passenger_name']} ({f['flight_number']} seat {t['seat']})"
+        if action == 'checkin':
+            if STRICT_WINDOWS and datetime.now() < parse_dt(f['departure']) - timedelta(hours=CHECKIN_OPENS_HOURS):
+                flash(f'Check-in opens {CHECKIN_OPENS_HOURS} hours before departure.', 'warning')
+                return back
+            if t['boarded_at']:
+                flash('That passenger has already boarded.', 'warning')
+                return back
+            conn.execute('UPDATE tickets SET checked_in_at = COALESCE(checked_in_at, ?) WHERE t_id = ?', (now_str(), t_id))
+            audit(conn, 'checkin', label)
+            flash(f"{t['passenger_name']} checked in.", 'success')
+        elif action == 'board':
+            if STRICT_WINDOWS and f['status'] != 'Boarding':
+                flash('Boarding has not opened for this flight yet.', 'warning')
+                return back
+            if not t['checked_in_at']:
+                flash('Check the passenger in before boarding.', 'warning')
+                return back
+            conn.execute('UPDATE tickets SET boarded_at = COALESCE(boarded_at, ?) WHERE t_id = ?', (now_str(), t_id))
+            audit(conn, 'board', label)
+            flash(f"{t['passenger_name']} boarded.", 'success')
+        else:
+            if t['boarded_at']:
+                conn.execute('UPDATE tickets SET boarded_at = NULL WHERE t_id = ?', (t_id,))
+                audit(conn, 'undo_board', label)
+                flash('Boarding undone.', 'success')
+            elif t['checked_in_at']:
+                conn.execute('UPDATE tickets SET checked_in_at = NULL WHERE t_id = ?', (t_id,))
+                audit(conn, 'undo_checkin', label)
+                flash('Check-in undone.', 'success')
+        conn.commit()
+    return back
+
+
+def audit_query():
+    """Audit rows matching the page filters (also used by the CSV export)."""
+    action, actor = request.args.get('action', ''), request.args.get('actor', '')
+    q = request.args.get('q', '').strip()
+    sql, args = 'SELECT * FROM audit_log WHERE 1=1', []
+    if action:
+        sql += ' AND action = ?'
+        args.append(action)
+    if actor:
+        sql += ' AND actor = ?'
+        args.append(actor)
+    if q:
+        sql += ' AND (target LIKE ? OR detail LIKE ? OR actor LIKE ?)'
+        args += [f'%{q}%'] * 3
+    return sql + ' ORDER BY id DESC', args
+
+
+@app.route('/admin/audit')
+@login_required('ADMIN')
+def audit_log():
+    with get_db() as conn:
+        sql, args = audit_query()
+        rows = [dict(r) for r in conn.execute(sql, args)]
+        actions = [r[0] for r in conn.execute('SELECT DISTINCT action FROM audit_log ORDER BY action')]
+        actors = [r[0] for r in conn.execute('SELECT DISTINCT actor FROM audit_log ORDER BY actor')]
+    rows, pg = paginate(rows, 25)
+    return render_template('admin_dashboard/audit.html', rows=rows, pg=pg, actions=actions, actors=actors,
+                           f_action=request.args.get('action', ''), f_actor=request.args.get('actor', ''),
+                           q=request.args.get('q', ''))
+
+
 @app.route('/manifest/<int:f_id>.csv')
 @login_required('STAFF', 'ADMIN')
 def manifest(f_id):
@@ -943,16 +1360,23 @@ def manifest(f_id):
         f = conn.execute('SELECT * FROM flights WHERE f_id = ?', (f_id,)).fetchone()
         if not f:
             abort(404)
-        rows = conn.execute('''SELECT t_id, passenger_name, passenger_age, passenger_gender, seat, class, meal,
-                                      breakdown FROM tickets WHERE f_id = ?
-                               AND COALESCE(status,'CONFIRMED')='CONFIRMED' ORDER BY seat''', (f_id,)).fetchall()
+        if not staff_can_see(conn, f_id):
+            flash('That flight is not on your schedule.', 'warning')
+            return redirect(url_for('flights'))
+        rows = conn.execute('''SELECT t.t_id, t.passenger_name, t.passenger_age, t.passenger_gender, t.seat, t.class,
+                                      t.meal, t.breakdown, t.p_id, p.phone, p.email
+                               FROM tickets t LEFT JOIN passengers p ON p.username = t.p_id
+                               WHERE t.f_id = ? AND COALESCE(t.status,'CONFIRMED')='CONFIRMED'
+                               ORDER BY t.seat''', (f_id,)).fetchall()
     out = []
     for r in rows:
         addons = ', '.join(a['name'] for a in json.loads(r['breakdown'] or '{}').get('addons', []))
         out.append([f"TKT-{r['t_id']:04d}", pnr_for(r['t_id']), r['passenger_name'], r['passenger_age'],
-                    r['passenger_gender'], r['seat'], r['class'], r['meal'] or '', addons])
+                    r['passenger_gender'], r['seat'], r['class'], r['meal'] or '', addons,
+                    r['p_id'], r['phone'] or '', r['email'] or ''])
     return csv_response(f"manifest_{f['flight_number']}.csv",
-                        ['Ticket', 'PNR', 'Passenger', 'Age', 'Gender', 'Seat', 'Class', 'Meal', 'Add-ons'], out)
+                        ['Ticket', 'PNR', 'Passenger', 'Age', 'Gender', 'Seat', 'Class', 'Meal', 'Add-ons',
+                         'Booked by', 'Booker phone', 'Booker email'], out)
 
 
 @app.route('/admin/export/<kind>.csv')
@@ -966,6 +1390,11 @@ def admin_export(kind):
             return csv_response('bookings.csv', ['Ticket', 'Booked at', 'Passenger', 'Flight', 'From', 'To', 'Seat',
                                                  'Class', 'Price', 'Status', 'Refunded'],
                                 [[f"TKT-{r['t_id']:04d}"] + list(r)[1:] for r in rows])
+        if kind == 'audit':
+            sql, args = audit_query()
+            return csv_response('audit_log.csv', ['When', 'Who', 'Role', 'Action', 'Target', 'Detail'],
+                                [[r['ts'], r['actor'], r['role'], r['action'], r['target'], r['detail']]
+                                 for r in conn.execute(sql, args)])
         if kind == 'occupancy':
             out = []
             for f in flight_rows(conn):
@@ -980,7 +1409,7 @@ def admin_export(kind):
 # ---------------------------------------------------------------------------
 # Admin: backups, users, stats
 # ---------------------------------------------------------------------------
-@app.route('/backup_database')
+@app.route('/backup_database', methods=['POST'])
 def backup_database():
     if json_role_check('ADMIN'):
         import shutil
@@ -989,6 +1418,7 @@ def backup_database():
         backup_file = f'backups/database_backup_{stamp.strftime("%Y%m%d_%H%M%S")}.db'
         try:
             shutil.copy2(DB, backup_file)
+            audit_now('backup_create', backup_file)
             with open('configs.json', 'w') as f:
                 json.dump({'system_health': {'last_database_backup': stamp.strftime('%Y-%m-%d %H:%M')}}, f)
             return jsonify({'status': 'success', 'message': f'Backup created successfully: {backup_file}',
@@ -1012,7 +1442,7 @@ def list_backups():
     return jsonify({'status': 'error', 'message': 'Unauthorized access'})
 
 
-@app.route('/restore_backup/<filename>')
+@app.route('/restore_backup/<filename>', methods=['POST'])
 def restore_backup(filename):
     if json_role_check('ADMIN'):
         import shutil
@@ -1023,6 +1453,7 @@ def restore_backup(filename):
                 shutil.copy2(DB, f'backups/pre_restore_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.db')
                 shutil.copy2(backup_file, DB)
                 schema._ready = False
+                audit_now('backup_restore', filename)
                 return jsonify({'status': 'success', 'message': f'Database restored from {filename}'})
             except Exception as e:
                 return jsonify({'status': 'error', 'message': f'Restore failed: {str(e)}'})
@@ -1067,6 +1498,7 @@ def add_user():
                               (username, hashed, name or username))
                 else:
                     c.execute('INSERT INTO admin (username, password) VALUES (?, ?)', (username, hashed))
+                audit(conn, 'user_add', username, role)
                 conn.commit()
             return jsonify({'status': 'success', 'message': f'{role} user added successfully'})
         except sqlite3.IntegrityError:
@@ -1085,9 +1517,18 @@ def delete_user():
             with sqlite3.connect(DB) as conn:
                 c = conn.cursor()
                 if role == 'PASSENGER':
+                    c.execute('SELECT username FROM passengers WHERE id = ?', (user_id,))
+                    gone = c.fetchone()
+                    if gone and c.execute('SELECT COUNT(*) FROM tickets WHERE p_id = ?', (gone[0],)).fetchone()[0]:
+                        return jsonify({'status': 'error',
+                                        'message': 'This passenger has bookings on record and cannot be deleted'})
                     c.execute('DELETE FROM passengers WHERE id = ?', (user_id,))
                 elif role == 'STAFF':
+                    c.execute('SELECT username FROM employees WHERE id = ?', (user_id,))
+                    gone = c.fetchone()
                     c.execute('DELETE FROM employees WHERE id = ?', (user_id,))
+                    if gone:
+                        c.execute('DELETE FROM staff_assignments WHERE staff_username = ?', (gone[0],))
                 elif role == 'ADMIN':
                     c.execute('SELECT username FROM admin WHERE id = ?', (user_id,))
                     row = c.fetchone()
@@ -1099,6 +1540,7 @@ def delete_user():
                     c.execute('DELETE FROM admin WHERE id = ?', (user_id,))
                 else:
                     return jsonify({'status': 'error', 'message': 'Unknown role'})
+                audit(conn, 'user_delete', f'{role} #{user_id}')
                 conn.commit()
             return jsonify({'status': 'success', 'message': f'{role} user deleted successfully'})
         except Exception as e:
@@ -1118,11 +1560,44 @@ def reset_password():
             with sqlite3.connect(DB) as conn:
                 conn.execute(f'UPDATE {table} SET password = ? WHERE id = ?',
                              (bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()), user_id))
+                audit(conn, 'password_reset', f'{role} #{user_id}')
                 conn.commit()
             return jsonify({'status': 'success', 'message': 'Password reset successfully'})
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)})
     return jsonify({'status': 'error', 'message': 'Unauthorized access'})
+
+
+ACCOUNT_TABLES = {'PASSENGER': 'passengers', 'STAFF': 'employees', 'ADMIN': 'admin'}
+
+
+def current_password_ok(role, username, supplied):
+    table = ACCOUNT_TABLES.get(role)
+    if not table or not supplied:
+        return False
+    with sqlite3.connect(DB) as conn:
+        row = conn.execute(f'SELECT password FROM {table} WHERE username = ?', (username,)).fetchone()
+    return bool(row) and bcrypt.checkpw(str(supplied).encode('utf-8'), row[0])
+
+
+@app.route('/change_password', methods=['POST'])
+def change_password():
+    """Any signed-in user changes their own password; the current one is required."""
+    if 'loggedin' not in session:
+        return jsonify({'status': 'error', 'message': 'Please login first'})
+    data = request.get_json(silent=True) or {}
+    new = data.get('new_password') or ''
+    if len(new) < 6:
+        return jsonify({'status': 'error', 'message': 'New password must be at least 6 characters'})
+    if not current_password_ok(session['role'], session['username'], data.get('current_password')):
+        return jsonify({'status': 'error', 'message': 'Current password is incorrect'})
+    table = ACCOUNT_TABLES[session['role']]
+    with sqlite3.connect(DB) as conn:
+        conn.execute(f'UPDATE {table} SET password = ? WHERE username = ?',
+                     (bcrypt.hashpw(new.encode('utf-8'), bcrypt.gensalt()), session['username']))
+        audit(conn, 'password_change', session['username'])
+        conn.commit()
+    return jsonify({'status': 'success', 'message': 'Password changed'})
 
 
 @app.route('/update_profile', methods=['POST'])
@@ -1133,6 +1608,11 @@ def update_profile():
     if not data:
         return jsonify({'status': 'error', 'message': 'No data provided'})
     password = data.get('password')
+    if password:
+        if len(password) < 6:
+            return jsonify({'status': 'error', 'message': 'New password must be at least 6 characters'})
+        if not current_password_ok(session['role'], session['username'], data.get('current_password')):
+            return jsonify({'status': 'error', 'message': 'Current password is incorrect'})
     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()) if password else None
     try:
         with sqlite3.connect(DB) as conn:
@@ -1219,6 +1699,8 @@ def get_active_flights():
         out = []
         with get_db() as conn:
             for f in flight_rows(conn):
+                if f['status'] == 'Cancelled':
+                    continue
                 dep, arr = parse_dt(f['departure']), parse_dt(f['arrival'])
                 if not (dep <= now + timedelta(hours=12) and arr >= now - timedelta(hours=12)):
                     continue
@@ -1229,7 +1711,7 @@ def get_active_flights():
                     progress = 1
                 else:
                     progress = min((now - dep).total_seconds() / total, 1)
-                status = 'In Air' if f['status'] == 'In Air' else ('Landed' if f['status'] == 'Landed' else 'Scheduled')
+                status = f['status'] if f['status'] in ('In Air', 'Landed', 'Delayed') else 'Scheduled'
                 out.append({'flight_number': str(escape(f['flight_number'])), 'flight_name': str(escape(f['flight_name'])),
                             'source': str(escape(f['source'])), 'destination': str(escape(f['destination'])),
                             'departure': f['departure'], 'arrival': f['arrival'],
@@ -1244,4 +1726,4 @@ def get_active_flights():
 schema.ensure_schema(DB)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=os.environ.get('FLASK_DEBUG') == '1')

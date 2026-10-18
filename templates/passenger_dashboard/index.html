@@ -1,15 +1,12 @@
 {% extends "base.html" %}
+{% from "_sky.html" import page_banner with context %}
 
 {% block title %}Home{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
-    <div>
-        <h2 class="mb-0">Welcome back, {{ (me['name'] or session.get('username'))|e }}</h2>
-        <p class="text-secondary mb-0">{{ trips|length }} upcoming trip{{ '' if trips|length == 1 else 's' }} &middot; {{ trip_count }} booking{{ '' if trip_count == 1 else 's' }} in total</p>
-    </div>
+{% call page_banner('Welcome back, ' ~ (me['name'] or session.get('username')), (trips|length ~ ' upcoming trip' ~ ('' if trips|length == 1 else 's') ~ ' · ' ~ trip_count ~ ' booking' ~ ('' if trip_count == 1 else 's') ~ ' in total')) %}
     <a href="{{ url_for('flights') }}" class="btn btn-primary btn-lg"><i class="bi bi-search"></i> Find a flight</a>
-</div>
+{% endcall %}
 
 <div class="row g-4">
     <div class="col-lg-8">
@@ -113,7 +110,8 @@
                     <div class="mb-3"><label class="form-label">Name</label><input type="text" class="form-control" name="name" value="{{ me['name'] }}" required></div>
                     <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" name="email" value="{{ me['email'] }}" required></div>
                     <div class="mb-3"><label class="form-label">Phone</label><input type="tel" class="form-control" name="phone" value="{{ me['phone'] }}" required></div>
-                    <div class="mb-1"><label class="form-label">New password <small class="text-secondary">(leave blank to keep current)</small></label><input type="password" class="form-control" name="password"></div>
+                    <div class="mb-3"><label class="form-label">New password <small class="text-secondary">(leave blank to keep current)</small></label><input type="password" class="form-control" name="password" minlength="6" autocomplete="new-password"></div>
+                    <div class="mb-1"><label class="form-label">Current password <small class="text-secondary">(needed only to set a new one)</small></label><input type="password" class="form-control" name="current_password" autocomplete="current-password"></div>
                 </form>
                 <div class="text-danger small mt-2" id="profile-error"></div>
             </div>
@@ -131,7 +129,7 @@
 document.getElementById('saveProfile').addEventListener('click', function () {
     var fd = new FormData(document.getElementById('profileForm'));
     var body = {};
-    fd.forEach(function (v, k) { if (k !== 'password' || v) body[k] = v; });
+    fd.forEach(function (v, k) { if ((k !== 'password' && k !== 'current_password') || fd.get('password')) body[k] = v; });
     fetch('/update_profile', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
         .then(function (r) { return r.json(); })
         .then(function (d) {

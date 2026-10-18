@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Assign staff{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <a href="{{ url_for('flights') }}" class="small text-secondary"><i class="bi bi-arrow-left"></i> Flights &amp; seats</a>
+        <h2 class="mt-1 mb-1">Assign staff</h2>
+        <p class="text-secondary mb-3">{{ flight.flight_name }} <span class="code">{{ flight.flight_number }}</span> &middot; {{ flight.source }} to {{ flight.destination }} &middot; {{ flight.departure }}</p>
+        <div class="card">
+            <div class="card-body">
+                {% if staff %}
+                <form method="POST" action="{{ url_for('assign_staff', f_id=flight.f_id) }}">
+                    {% for s in staff %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="staff" value="{{ s.username }}" id="st-{{ s.id }}" {{ 'checked' if s.username in current }}>
+                        <label class="form-check-label" for="st-{{ s.id }}">{{ s.name }} <span class="small text-secondary">@{{ s.username }}</span></label>
+                    </div>
+                    {% endfor %}
+                    <p class="small text-secondary mt-3">Assigned staff see this flight on their schedule and can open its passenger list. Unticked staff cannot.</p>
+                    <button class="btn btn-primary">Save assignments</button>
+                    <a href="{{ url_for('flights') }}" class="btn btn-outline-secondary">Cancel</a>
+                </form>
+                {% else %}
+                <div class="empty-state mb-0"><i class="bi bi-people"></i><h5>No staff accounts yet</h5><p class="text-secondary mb-0">Add a staff user from Manage Users first.</p></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

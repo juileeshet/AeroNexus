@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Add flight{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <a href="{{ url_for('flights') }}" class="small text-secondary"><i class="bi bi-arrow-left"></i> Flight schedule</a>
+        <h2 class="mt-1 mb-3">Add a flight</h2>
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_flight') }}">
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label" for="flight_number">Flight number</label>
+                            <input type="text" class="form-control" id="flight_number" name="flight_number" value="{{ form.get('flight_number', '') }}" placeholder="e.g. 6E-186" required></div>
+                        <div class="col-md-6"><label class="form-label" for="flight_name">Airline</label>
+                            <input type="text" class="form-control" id="flight_name" name="flight_name" value="{{ form.get('flight_name', '') }}" required></div>
+                        <div class="col-md-6"><label class="form-label" for="source">From</label>
+                            <input type="text" class="form-control" id="source" name="source" list="city-list" value="{{ form.get('source', '') }}" required></div>
+                        <div class="col-md-6"><label class="form-label" for="destination">To</label>
+                            <input type="text" class="form-control" id="destination" name="destination" list="city-list" value="{{ form.get('destination', '') }}" required></div>
+                        <div class="col-md-6"><label class="form-label" for="departure">Departure</label>
+                            <input type="datetime-local" class="form-control" id="departure" name="departure" value="{{ form.get('departure', '') }}" required></div>
+                        <div class="col-md-6"><label class="form-label" for="arrival">Arrival</label>
+                            <input type="datetime-local" class="form-control" id="arrival" name="arrival" value="{{ form.get('arrival', '') }}" required></div>
+                        <div class="col-md-4"><label class="form-label" for="price">Base economy fare (&#8377;)</label>
+                            <input type="number" class="form-control" id="price" name="price" min="1" step="0.01" value="{{ form.get('price', '') }}" required></div>
+                        <div class="col-md-4"><label class="form-label" for="terminal">Terminal <small class="text-secondary">(optional)</small></label>
+                            <input type="text" class="form-control" id="terminal" name="terminal" value="{{ form.get('terminal', '') }}"></div>
+                        <div class="col-md-4"><label class="form-label" for="gate">Gate <small class="text-secondary">(optional)</small></label>
+                            <input type="text" class="form-control" id="gate" name="gate" value="{{ form.get('gate', '') }}"></div>
+                    </div>
+                    <p class="small text-secondary mt-3">First class is priced at 3x and Business at 2x the economy fare. Leave terminal and gate blank to assign them automatically; you can change them any time from the schedule.</p>
+                    <datalist id="city-list">{% for c in cities or [] %}<option value="{{ c }}">{% endfor %}</datalist>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Add flight</button>
+                        <a href="{{ url_for('flights') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

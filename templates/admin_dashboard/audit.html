@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_pager.html" import pager with context %}
+
+{% block title %}Audit log{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
+    <div>
+        <h2 class="mb-0">Audit log</h2>
+        <p class="text-secondary mb-0">Who changed what, and when. Flights, staff assignments, shops, users, passwords, backups and passenger check-in.</p>
+    </div>
+    <a href="{{ url_for('admin_export', kind='audit', action=f_action or None, actor=f_actor or None, q=q or None) }}" class="btn btn-outline-secondary"><i class="bi bi-download"></i> Export CSV</a>
+</div>
+
+<form method="GET" class="filter-bar mb-3 no-print">
+    <div class="input-group filter-search">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Search target, detail or person">
+    </div>
+    <select class="form-select" name="action" style="max-width:190px" onchange="this.form.submit()">
+        <option value="">All actions</option>
+        {% for a in actions %}<option value="{{ a }}" {{ 'selected' if a == f_action }}>{{ a }}</option>{% endfor %}
+    </select>
+    <select class="form-select" name="actor" style="max-width:170px" onchange="this.form.submit()">
+        <option value="">Everyone</option>
+        {% for a in actors %}<option value="{{ a }}" {{ 'selected' if a == f_actor }}>{{ a }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline-primary">Search</button>
+    {% if q or f_action or f_actor %}<a href="{{ url_for('audit_log') }}" class="btn btn-link">Clear</a>{% endif %}
+</form>
+
+{% if rows %}
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+            <tbody>
+                {% for r in rows %}
+                <tr>
+                    <td class="text-nowrap small">{{ r.ts }}</td>
+                    <td class="text-nowrap">{{ r.actor }} <span class="role-pill">{{ r.role|lower }}</span></td>
+                    <td><span class="code">{{ r.action }}</span></td>
+                    <td>{{ r.target }}</td>
+                    <td class="small text-secondary">{{ r.detail }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{ pager(pg) }}
+{% else %}
+<div class="empty-state"><i class="bi bi-journal-text"></i><h5>Nothing logged{{ ' for these filters' if q or f_action or f_actor }}</h5><p class="text-secondary mb-0">Changes made from now on will appear here.</p></div>
+{% endif %}
+{% endblock %}

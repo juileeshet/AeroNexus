@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_pager.html" import pager with context %}
 
 {% block title %}Flights &amp; seats{% endblock %}
 
@@ -6,20 +7,34 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
     <div>
         <h2 class="mb-0">Flights &amp; seats</h2>
-        <p class="text-secondary mb-0">Occupancy and revenue for every scheduled flight. Admins view and monitor; staff manage the schedule.</p>
+        <p class="text-secondary mb-0">Add, edit and remove flights, and monitor occupancy and revenue. Staff only get a read-only schedule.</p>
     </div>
     <div class="d-flex gap-2">
+        <a href="{{ url_for('add_flight') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add flight</a>
         <a href="{{ url_for('admin_export', kind='occupancy') }}" class="btn btn-outline-secondary"><i class="bi bi-download"></i> Export CSV</a>
         <a href="{{ url_for('flight_tracker') }}" class="btn btn-outline-primary"><i class="bi bi-geo-alt"></i> Track flights</a>
     </div>
 </div>
+
+<form method="GET" class="filter-bar mb-3 no-print">
+    <div class="input-group filter-search">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Search flight number, airline or city">
+    </div>
+    <select class="form-select" name="status" style="max-width:170px" onchange="this.form.submit()">
+        <option value="">All statuses</option>
+        {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == status }}>{{ s }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline-primary">Search</button>
+    {% if q or status %}<a href="{{ url_for('flights') }}" class="btn btn-link">Clear</a>{% endif %}
+</form>
 
 {% if flights %}
 <div class="card">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 admin-flights">
             <thead>
-                <tr><th>Flight</th><th>Route</th><th>Departure</th><th>Status</th><th>Gate</th>
+                <tr><th>Flight</th><th>Route</th><th>Departure</th><th>Status</th><th>Gate</th><th>Staff</th>
                     <th style="min-width:190px">Seats sold</th><th>Empty</th><th class="text-end">Revenue</th><th></th></tr>
             </thead>
             <tbody>
@@ -28,8 +43,9 @@
                     <td><strong>{{ f.flight_name }}</strong><br><span class="code small text-secondary">{{ f.flight_number }}</span></td>
                     <td class="text-nowrap">{{ f.src_iata }} <i class="bi bi-arrow-right text-secondary"></i> {{ f.dst_iata }}<br><span class="small text-secondary">{{ f.source }} to {{ f.destination }}</span></td>
                     <td class="text-nowrap">{{ f.departure }}</td>
-                    <td><span class="badge {{ f.badge }}">{{ f.status }}</span></td>
+                    <td><span class="badge {{ f.badge }}">{{ f.status }}</span>{% if f.status == 'Delayed' %}<br><span class="small text-secondary">+{{ f.delay_minutes }} min</span>{% endif %}</td>
                     <td class="code text-nowrap">T{{ f.terminal }} / {{ f.gate }}</td>
+                    <td class="small" style="min-width:120px">{% if f.crew %}{{ f.crew|join(', ') }}{% else %}<span class="text-secondary">Unassigned</span>{% endif %}</td>
                     <td>
                         <div class="d-flex justify-content-between small"><span>{{ f.sold }} / {{ total_seats }}</span><span>{{ f.load }}%</span></div>
                         <div class="load-bar"><span style="width: {{ f.load }}%"></span></div>
@@ -41,7 +57,20 @@
                     <td class="text-end">&#8377;{{ '{:,.0f}'.format(f.revenue) }}</td>
                     <td class="text-end text-nowrap">
                         <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin_flight_detail', f_id=f.f_id) }}">Seat map</a>
+                        <a class="btn btn-sm btn-outline-warning" href="{{ url_for('flight_ops', f_id=f.f_id) }}" title="Delay or cancel"><i class="bi bi-exclamation-triangle"></i></a>
+                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('assign_staff', f_id=f.f_id) }}" title="Assign staff"><i class="bi bi-person-badge"></i></a>
+                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('staff_flight_detail', f_id=f.f_id) }}" title="Passengers and who booked"><i class="bi bi-people"></i></a>
                         <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('manifest', f_id=f.f_id) }}" title="Passenger manifest"><i class="bi bi-download"></i></a>
+                        <button class="btn btn-sm btn-outline-primary edit-flight-btn" data-bs-toggle="modal" data-bs-target="#editFlightModal"
+                                data-flight-id="{{ f.f_id }}" data-flight-number="{{ f.flight_number }}"
+                                data-flight-name="{{ f.flight_name }}" data-source="{{ f.source }}"
+                                data-destination="{{ f.destination }}" data-departure="{{ f.departure }}"
+                                data-arrival="{{ f.arrival }}" data-price="{{ f.price }}"
+                                data-terminal="{{ f.terminal }}" data-gate="{{ f.gate }}">Edit</button>
+                        <form method="POST" action="{{ url_for('delete_flight', f_id=f.f_id) }}" class="d-inline"
+                              onsubmit="return confirm('Delete this flight?')">
+                            <button class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}
@@ -49,7 +78,75 @@
         </table>
     </div>
 </div>
+{{ pager(pg) }}
 {% else %}
-<div class="empty-state"><i class="bi bi-airplane"></i><h5>No flights scheduled</h5><p class="text-secondary mb-0">Staff can add flights from their dashboard.</p></div>
+{% if q or status %}<div class="empty-state"><i class="bi bi-search"></i><h5>No flights match</h5><p class="text-secondary mb-0">Try a different search or clear the filters.</p></div>{% else %}
+<div class="empty-state"><i class="bi bi-airplane"></i><h5>No flights scheduled</h5><p class="text-secondary mb-0">Use Add flight to schedule the first one.</p></div>{% endif %}
 {% endif %}
+
+<div class="modal fade" id="editFlightModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit flight</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-flight-id">
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label">Flight number</label><input type="text" class="form-control" id="edit-flight-number"></div>
+                    <div class="col-md-6"><label class="form-label">Airline</label><input type="text" class="form-control" id="edit-flight-name"></div>
+                    <div class="col-md-6"><label class="form-label">From</label><input type="text" class="form-control" id="edit-source"></div>
+                    <div class="col-md-6"><label class="form-label">To</label><input type="text" class="form-control" id="edit-destination"></div>
+                    <div class="col-md-6"><label class="form-label">Departure</label><input type="datetime-local" class="form-control" id="edit-departure"></div>
+                    <div class="col-md-6"><label class="form-label">Arrival</label><input type="datetime-local" class="form-control" id="edit-arrival"></div>
+                    <div class="col-md-4"><label class="form-label">Base price (&#8377;)</label><input type="number" class="form-control" id="edit-price" min="1" step="0.01"></div>
+                    <div class="col-md-4"><label class="form-label">Terminal</label><input type="text" class="form-control" id="edit-terminal"></div>
+                    <div class="col-md-4"><label class="form-label">Gate</label><input type="text" class="form-control" id="edit-gate"></div>
+                </div>
+                <p class="small text-secondary mt-3 mb-0">Passengers see terminal and gate changes on their boarding pass straight away.</p>
+            </div>
+            <div class="modal-footer">
+                <div class="me-auto text-danger small" id="edit-error"></div>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveFlightBtn">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var toLocal = function (s) { return (s || '').replace(' ', 'T'); };
+    var ids = ['flight-number', 'flight-name', 'source', 'destination', 'departure', 'arrival', 'price', 'terminal', 'gate'];
+    var keys = ['flightNumber', 'flightName', 'source', 'destination', 'departure', 'arrival', 'price', 'terminal', 'gate'];
+    document.querySelectorAll('.edit-flight-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var d = btn.dataset;
+            document.getElementById('edit-error').textContent = '';
+            document.getElementById('edit-flight-id').value = d.flightId;
+            ids.forEach(function (id, i) {
+                var v = d[keys[i]];
+                document.getElementById('edit-' + id).value = (id === 'departure' || id === 'arrival') ? toLocal(v) : v;
+            });
+        });
+    });
+    document.getElementById('saveFlightBtn').addEventListener('click', function () {
+        var body = {};
+        ids.forEach(function (id, i) {
+            body[['flight_number', 'flight_name', 'source', 'destination', 'departure', 'arrival', 'price', 'terminal', 'gate'][i]] =
+                document.getElementById('edit-' + id).value;
+        });
+        fetch('/edit_flight/' + document.getElementById('edit-flight-id').value,
+              {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.status === 'success') { window.location.reload(); }
+                else { document.getElementById('edit-error').textContent = data.message; }
+            });
+    });
+})();
+</script>
 {% endblock %}

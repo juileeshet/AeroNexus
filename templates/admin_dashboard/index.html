@@ -1,39 +1,36 @@
 {% extends "base.html" %}
+{% from "_sky.html" import page_banner with context %}
 
 {% block title %}Overview{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
-    <div>
-        <h2 class="mb-0">System overview</h2>
-        <p class="text-secondary mb-0">Live numbers from the database. Admins monitor the system and do not book flights.</p>
-    </div>
-    <div class="d-flex gap-2 flex-wrap">
-        <a href="{{ url_for('flights') }}" class="btn btn-primary"><i class="bi bi-grid-3x3-gap"></i> Flights &amp; seats</a>
-        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#userManagementModal"><i class="bi bi-people"></i> Manage users</button>
-        <a href="{{ url_for('flight_tracker') }}" class="btn btn-outline-primary"><i class="bi bi-geo-alt"></i> Track flights</a>
-    </div>
-</div>
+{% call page_banner('System overview', 'Live numbers from the database. Admins manage flights, shops and users, and do not book flights.') %}
+    <a href="{{ url_for('flights') }}" class="btn btn-primary"><i class="bi bi-grid-3x3-gap"></i> Flights &amp; seats</a>
+    <a href="{{ url_for('add_flight') }}" class="btn btn-outline-primary"><i class="bi bi-plus-lg"></i> Add flight</a>
+    <a href="{{ url_for('admin_shops') }}" class="btn btn-outline-primary"><i class="bi bi-shop"></i> Airport shops</a>
+    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#userManagementModal"><i class="bi bi-people"></i> Manage users</button>
+    <a href="{{ url_for('flight_tracker') }}" class="btn btn-outline-primary"><i class="bi bi-geo-alt"></i> Track flights</a>
+{% endcall %}
 
 <div class="dashboard-stats">
     <div class="row g-3">
-        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Net revenue</h3><p class="h2 mb-0">&#8377;{{ '{:,.0f}'.format(stats.revenue) }}</p><small class="text-secondary">All time, after refunds</small></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Confirmed bookings</h3><p class="h2 mb-0">{{ stats.confirmed }}</p><small class="text-secondary">{{ stats.cancelled }} cancelled</small></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Seats sold</h3><p class="h2 mb-0">{{ stats.seats_sold }}</p><small class="text-secondary">on {{ stats.flights_upcoming }} upcoming flight{{ '' if stats.flights_upcoming == 1 else 's' }}</small></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Seats empty</h3><p class="h2 mb-0">{{ stats.seats_empty }}</p><small class="text-secondary">of {{ stats.capacity }} on upcoming flights</small></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Net revenue</h3><p class="h2 mb-0" data-count="{{ stats.revenue|round(0) }}" data-prefix="&#8377;">&#8377;{{ '{:,.0f}'.format(stats.revenue) }}</p><small class="text-secondary">All time, after refunds</small></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Confirmed bookings</h3><p class="h2 mb-0" data-count="{{ stats.confirmed }}">{{ stats.confirmed }}</p><small class="text-secondary">{{ stats.cancelled }} cancelled</small></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Seats sold</h3><p class="h2 mb-0" data-count="{{ stats.seats_sold }}">{{ stats.seats_sold }}</p><small class="text-secondary">on {{ stats.flights_upcoming }} upcoming flight{{ '' if stats.flights_upcoming == 1 else 's' }}</small></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Seats empty</h3><p class="h2 mb-0" data-count="{{ stats.seats_empty }}">{{ stats.seats_empty }}</p><small class="text-secondary">of {{ stats.capacity }} on upcoming flights</small></div></div>
     </div>
     <div class="row g-3 mt-0">
         <div class="col-12 col-lg-6">
             <div class="stat-card stat-wide">
                 <h3>Load factor, upcoming flights</h3>
                 <div class="d-flex align-items-center gap-3">
-                    <p class="h2 mb-0">{{ stats.load }}%</p>
+                    <p class="h2 mb-0" data-count="{{ stats.load }}" data-decimals="1" data-suffix="%">{{ stats.load }}%</p>
                     <div class="load-bar flex-grow-1"><span style="width: {{ stats.load }}%"></span></div>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Users</h3><p class="h2 mb-0">{{ stats.users }}</p><small class="text-secondary">passengers, staff and admins</small></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Flights scheduled</h3><p class="h2 mb-0">{{ stats.flights_total }}</p><small class="text-secondary">{{ stats.flights_upcoming }} upcoming</small></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Users</h3><p class="h2 mb-0" data-count="{{ stats.users }}">{{ stats.users }}</p><small class="text-secondary">passengers, staff and admins</small></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Flights scheduled</h3><p class="h2 mb-0" data-count="{{ stats.flights_total }}">{{ stats.flights_total }}</p><small class="text-secondary">{{ stats.flights_upcoming }} upcoming</small></div></div>
     </div>
 </div>
 
@@ -229,7 +226,7 @@
                 var btn = document.createElement('button'); btn.className = 'btn btn-sm btn-outline-primary'; btn.textContent = 'Restore';
                 btn.addEventListener('click', function () {
                     if (!confirm('Restore ' + b.file + '? The live database will be replaced.')) return;
-                    fetch('/restore_backup/' + encodeURIComponent(b.file)).then(function (r) { return r.json(); }).then(function (r) {
+                    fetch('/restore_backup/' + encodeURIComponent(b.file), {method: 'POST'}).then(function (r) { return r.json(); }).then(function (r) {
                         say(document.getElementById('backup-msg'), r.status === 'success', r.message);
                         if (r.status === 'success') setTimeout(function () { window.location.reload(); }, 1200);
                     });
@@ -240,7 +237,7 @@
     }
     document.getElementById('backupModal').addEventListener('show.bs.modal', loadBackups);
     document.getElementById('createBackup').addEventListener('click', function () {
-        fetch('/backup_database').then(function (r) { return r.json(); }).then(function (r) {
+        fetch('/backup_database', {method: 'POST'}).then(function (r) { return r.json(); }).then(function (r) {
             say(document.getElementById('backup-msg'), r.status === 'success', r.message);
             if (r.status === 'success') { loadBackups(); document.getElementById('last-backup').textContent = new Date().toISOString().slice(0, 16).replace('T', ' '); }
         });

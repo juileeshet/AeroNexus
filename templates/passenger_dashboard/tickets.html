@@ -1,15 +1,12 @@
 {% extends "base.html" %}
+{% from "_sky.html" import page_banner with context %}
 
 {% block title %}My Trips{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
-    <div>
-        <h2 class="mb-0">My trips</h2>
-        <p class="text-secondary mb-0">Boarding passes, gates and airport guides for every booking.</p>
-    </div>
+{% call page_banner('My trips', 'Boarding passes, gates and airport guides for every booking.') %}
     <a href="{{ url_for('flights') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Book another flight</a>
-</div>
+{% endcall %}
 
 {% if trips %}
 <div class="row">
@@ -21,6 +18,10 @@
                 <span class="ticket-number">PNR {{ t.pnr }}</span>
                 {% if cancelled %}
                     <span class="badge bg-danger">Cancelled</span>
+                {% elif t.boarded_at %}
+                    <span class="badge bg-success">Boarded</span>
+                {% elif t.checked_in_at %}
+                    <span class="badge bg-info">Checked in</span>
                 {% elif t.departure and t.flight_state == 'Landed' %}
                     <span class="badge bg-secondary">Completed</span>
                 {% elif t.departure and t.flight_state == 'In Air' %}
@@ -30,6 +31,11 @@
                 {% endif %}
             </div>
             <div class="card-body">
+                {% if t.ops_status == 'CANCELLED' %}
+                <div class="alert alert-danger py-2 small"><strong>Flight cancelled by the airline.</strong>{{ ' ' ~ t.ops_reason if t.ops_reason }} You have been refunded in full (&#8377;{{ '{:,.0f}'.format(t.refund_amount or 0) }}).</div>
+                {% elif t.ops_status == 'DELAYED' and not cancelled %}
+                <div class="alert alert-warning py-2 small"><strong>Flight delayed by {{ t.delay_minutes }} minutes.</strong>{{ ' ' ~ t.ops_reason if t.ops_reason }} The times below are the new ones.</div>
+                {% endif %}
                 {% if t.departure %}
                 <div class="route-line">
                     <div class="route-endpoint">

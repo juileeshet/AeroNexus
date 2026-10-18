@@ -1,0 +1,16 @@
+{% macro pager(pg) %}
+{% if pg.pages > 1 %}
+<nav class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 no-print" aria-label="Pages">
+    <span class="small text-secondary">Page {{ pg.page }} of {{ pg.pages }} &middot; {{ pg.total }} result{{ '' if pg.total == 1 else 's' }}</span>
+    <ul class="pagination pagination-sm mb-0">
+        <li class="page-item {{ 'disabled' if pg.page == 1 }}"><a class="page-link" href="{{ page_url(pg.page - 1) if pg.page > 1 else '#' }}">Previous</a></li>
+        {% for n in range([pg.page - 2, 1]|max, [pg.page + 2, pg.pages]|min + 1) %}
+        <li class="page-item {{ 'active' if n == pg.page }}"><a class="page-link" href="{{ page_url(n) }}">{{ n }}</a></li>
+        {% endfor %}
+        <li class="page-item {{ 'disabled' if pg.page == pg.pages }}"><a class="page-link" href="{{ page_url(pg.page + 1) if pg.page < pg.pages else '#' }}">Next</a></li>
+    </ul>
+</nav>
+{% elif pg.total %}
+<p class="small text-secondary mt-3 mb-0">{{ pg.total }} result{{ '' if pg.total == 1 else 's' }}</p>
+{% endif %}
+{% endmacro %}

@@ -108,6 +108,13 @@ def ensure_schema(db_path=DB_FILE):
         _add_column(c, 'flights', 'gate TEXT')
         _add_column(c, 'flights', 'created_at TEXT')
         _add_column(c, 'passengers', 'created_at TEXT')
+        _add_column(c, 'flights', 'ops_status TEXT')
+        _add_column(c, 'flights', 'ops_reason TEXT')
+        _add_column(c, 'flights', 'delay_minutes INTEGER DEFAULT 0')
+        _add_column(c, 'flights', 'orig_departure TEXT')
+        _add_column(c, 'flights', 'orig_arrival TEXT')
+        _add_column(c, 'tickets', 'checked_in_at TEXT')
+        _add_column(c, 'tickets', 'boarded_at TEXT')
 
         c.execute("UPDATE tickets SET created_at = datetime('now','localtime') WHERE created_at IS NULL")
         c.execute("UPDATE tickets SET status = 'CONFIRMED' WHERE status IS NULL")
@@ -145,6 +152,15 @@ def ensure_schema(db_path=DB_FILE):
         c.execute('SELECT COUNT(*) FROM addons')
         if c.fetchone()[0] == 0:
             c.executemany('INSERT INTO addons (code, name, description, price, grp) VALUES (?,?,?,?,?)', ADDONS)
+
+        c.execute('''CREATE TABLE IF NOT EXISTS staff_assignments
+                    (staff_username TEXT NOT NULL, f_id INTEGER NOT NULL,
+                     PRIMARY KEY (staff_username, f_id))''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS audit_log
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, actor TEXT NOT NULL,
+                     role TEXT NOT NULL, action TEXT NOT NULL, target TEXT, detail TEXT)''')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log (ts)')
 
         assign_missing_gates(c)
         conn.commit()

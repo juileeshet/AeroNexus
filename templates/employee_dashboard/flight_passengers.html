@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% from "_pager.html" import pager with context %}
+
+{% block title %}{{ flight.flight_number }} passengers{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('flights') }}" class="small text-secondary"><i class="bi bi-arrow-left"></i> {{ 'My schedule' if session.get('role') == 'STAFF' else 'Flights & seats' }}</a>
+<div class="d-flex flex-wrap justify-content-between align-items-end mt-1 mb-3 gap-2">
+    <div>
+        <h2 class="mb-0">{{ flight.flight_name }} <span class="code fs-5 text-secondary">{{ flight.flight_number }}</span></h2>
+        <p class="text-secondary mb-0">{{ flight.source }} to {{ flight.destination }} &middot; departs {{ flight.departure }} &middot; Terminal {{ flight.terminal }}, gate {{ flight.gate }}
+            &middot; <span class="badge {{ flight.badge }}">{{ flight.status }}</span>{% if flight.status == 'Delayed' %} <span class="small">+{{ flight.delay_minutes }} min</span>{% endif %}</p>
+    </div>
+    <a href="{{ url_for('manifest', f_id=flight.f_id) }}" class="btn btn-outline-secondary"><i class="bi bi-download"></i> Download manifest</a>
+</div>
+
+{% if flight.status == 'Cancelled' %}
+<div class="alert alert-danger">This flight was cancelled{{ ': ' ~ flight.ops_reason if flight.ops_reason }}. All bookings were refunded.</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+    <div class="col-4"><div class="stat-card"><h3>Booked</h3><p class="h3 mb-0">{{ total_booked }} <small class="text-secondary fs-6">/ {{ total_seats }}</small></p></div></div>
+    <div class="col-4"><div class="stat-card"><h3>Checked in</h3><p class="h3 mb-0">{{ flight.checked_in }} <small class="text-secondary fs-6">of {{ total_booked }}</small></p></div></div>
+    <div class="col-4"><div class="stat-card"><h3>Boarded</h3><p class="h3 mb-0">{{ flight.boarded }} <small class="text-secondary fs-6">of {{ total_booked }}</small></p></div></div>
+</div>
+
+<form method="GET" class="filter-bar mb-3 no-print">
+    <div class="input-group filter-search">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Search passenger, seat, booker or PNR">
+    </div>
+    <button class="btn btn-outline-primary">Search</button>
+    {% if q %}<a href="{{ url_for('staff_flight_detail', f_id=flight.f_id) }}" class="btn btn-link">Clear</a>{% endif %}
+</form>
+
+<div class="card">
+    <div class="card-header">{{ total_booked }} confirmed passenger{{ '' if total_booked == 1 else 's' }} of {{ total_seats }} seats</div>
+    {% if bookings %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Seat</th><th>Passenger</th><th>Age / gender</th><th>Class</th><th>Meal</th><th>Booked by</th><th>Contact</th><th>Ticket</th><th>Status</th>{% if ops_open %}<th></th>{% endif %}</tr></thead>
+            <tbody>
+                {% for b in bookings %}
+                <tr>
+                    <td class="code">{{ b.seat }}</td>
+                    <td>{{ b.passenger_name }}{% if b.addons %}<br><span class="small text-secondary">{{ b.addons }}</span>{% endif %}</td>
+                    <td class="text-nowrap">{{ b.passenger_age or '-' }} / {{ b.passenger_gender or '-' }}</td>
+                    <td>{{ b.class }}</td>
+                    <td>{{ b.meal if b.meal and b.meal != 'NONE' else '-' }}</td>
+                    <td>{{ b.booker_name or b.p_id }}<br><span class="small text-secondary">@{{ b.p_id }}</span></td>
+                    <td class="small">{{ b.booker_phone or '-' }}<br>{{ b.booker_email or '' }}</td>
+                    <td class="code small text-nowrap">{{ b.ref }}<br>{{ b.pnr }}</td>
+                    <td class="text-nowrap">
+                        {% if b.boarded_at %}<span class="badge bg-success">Boarded</span><br><span class="small text-secondary">{{ b.boarded_at[11:16] }}</span>
+                        {% elif b.checked_in_at %}<span class="badge bg-info">Checked in</span><br><span class="small text-secondary">{{ b.checked_in_at[11:16] }}</span>
+                        {% else %}<span class="badge bg-light text-dark border">Not checked in</span>{% endif %}
+                    </td>
+                    {% if ops_open %}
+                    <td class="text-end text-nowrap">
+                        {% if not b.checked_in_at %}
+                        <form method="POST" action="{{ url_for('ticket_ops', t_id=b.t_id, action='checkin') }}" class="d-inline">
+                            <input type="hidden" name="q" value="{{ q }}"><input type="hidden" name="page" value="{{ pg.page }}">
+                            <button class="btn btn-sm btn-primary">Check in</button></form>
+                        {% elif not b.boarded_at %}
+                        <form method="POST" action="{{ url_for('ticket_ops', t_id=b.t_id, action='board') }}" class="d-inline">
+                            <input type="hidden" name="q" value="{{ q }}"><input type="hidden" name="page" value="{{ pg.page }}">
+                            <button class="btn btn-sm btn-success">Board</button></form>
+                        {% endif %}
+                        {% if b.checked_in_at %}
+                        <form method="POST" action="{{ url_for('ticket_ops', t_id=b.t_id, action='undo') }}" class="d-inline">
+                            <input type="hidden" name="q" value="{{ q }}"><input type="hidden" name="page" value="{{ pg.page }}">
+                            <button class="btn btn-sm btn-outline-secondary" title="Undo last step">Undo</button></form>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% elif q %}
+    <div class="card-body"><div class="empty-state mb-0"><i class="bi bi-search"></i><h5>No passengers match</h5><p class="text-secondary mb-0">Try a different name, seat or PNR.</p></div></div>
+    {% else %}
+    <div class="card-body"><div class="empty-state mb-0"><i class="bi bi-person"></i><h5>No bookings yet</h5><p class="text-secondary mb-0">Nobody has booked this flight.</p></div></div>
+    {% endif %}
+</div>
+{{ pager(pg) }}
+{% endblock %}

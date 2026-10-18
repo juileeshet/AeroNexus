@@ -1,26 +1,20 @@
 {% extends "base.html" %}
+{% from "_sky.html" import page_banner with context %}
 
 {% block title %}Staff dashboard{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
-    <div>
-        <h2 class="mb-0">Staff dashboard</h2>
-        <p class="text-secondary mb-0">Today is {{ now_label }}.</p>
-    </div>
-    <div class="d-flex gap-2 flex-wrap">
-        <a href="{{ url_for('add_flight') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add flight</a>
-        <a href="{{ url_for('flights') }}" class="btn btn-outline-primary"><i class="bi bi-pencil-square"></i> Edit schedule &amp; gates</a>
-        <a href="{{ url_for('staff_shops') }}" class="btn btn-outline-primary"><i class="bi bi-shop"></i> Airport shops</a>
-    </div>
-</div>
+{% call page_banner('Staff dashboard', 'Today is ' ~ now_label ~ '.') %}
+    <a href="{{ url_for('flights') }}" class="btn btn-primary"><i class="bi bi-calendar3"></i> My full schedule</a>
+    <a href="{{ url_for('flight_tracker') }}" class="btn btn-outline-primary"><i class="bi bi-geo-alt"></i> Track flights</a>
+{% endcall %}
 
 <div class="dashboard-stats">
     <div class="row g-3">
-        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Departing today</h3><p class="h2 mb-0">{{ today_flights|length }}</p></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Departing today</h3><p class="h2 mb-0" data-count="{{ today_flights|length }}">{{ today_flights|length }}</p></div></div>
         <div class="col-6 col-lg-3"><div class="stat-card"><h3>Upcoming flights</h3><p class="h2 mb-0">{{ next_up|length if next_up|length < 6 else '6+' }}</p></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Seats sold</h3><p class="h2 mb-0">{{ sold_total }}</p></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Flights in schedule</h3><p class="h2 mb-0">{{ flights|length }}</p></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>Seats sold</h3><p class="h2 mb-0" data-count="{{ sold_total }}">{{ sold_total }}</p></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><h3>My flights</h3><p class="h2 mb-0" data-count="{{ flights|length }}">{{ flights|length }}</p></div></div>
     </div>
 </div>
 
@@ -29,24 +23,28 @@
     {% if next_up %}
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
-            <thead><tr><th>Flight</th><th>Route</th><th>Departs</th><th>Status</th><th>Terminal / gate</th><th>Seats sold</th><th></th></tr></thead>
+            <thead><tr><th>Flight</th><th>Route</th><th>Departs</th><th>Status</th><th>Terminal / gate</th><th>Seats sold</th><th>Checked in / boarded</th><th></th></tr></thead>
             <tbody>
                 {% for f in next_up %}
                 <tr>
                     <td><span class="code">{{ f.flight_number }}</span><br><span class="small text-secondary">{{ f.flight_name }}</span></td>
                     <td class="text-nowrap">{{ f.source }} <i class="bi bi-arrow-right text-secondary"></i> {{ f.destination }}</td>
                     <td class="text-nowrap">{{ f.departure }}</td>
-                    <td><span class="badge {{ f.badge }}">{{ f.status }}</span></td>
+                    <td><span class="badge {{ f.badge }}">{{ f.status }}</span>{% if f.status == 'Delayed' %}<br><span class="small text-secondary">+{{ f.delay_minutes }} min</span>{% endif %}</td>
                     <td class="code">T{{ f.terminal }} / {{ f.gate }}</td>
                     <td>{{ f.sold }} / {{ total_seats }}</td>
-                    <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('manifest', f_id=f.f_id) }}"><i class="bi bi-download"></i> Manifest</a></td>
+                    <td class="text-nowrap">{{ f.checked_in }} / {{ f.boarded }}</td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('staff_flight_detail', f_id=f.f_id) }}"><i class="bi bi-people"></i> Passengers</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('manifest', f_id=f.f_id) }}" title="Download manifest"><i class="bi bi-download"></i></a>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
     {% else %}
-    <div class="card-body"><div class="empty-state mb-0"><i class="bi bi-airplane"></i><h5>No upcoming flights</h5><p class="text-secondary mb-3">Add a flight to open it for booking.</p><a href="{{ url_for('add_flight') }}" class="btn btn-primary">Add flight</a></div></div>
+    <div class="card-body"><div class="empty-state mb-0"><i class="bi bi-airplane"></i><h5>No upcoming flights assigned to you</h5><p class="text-secondary mb-0">An admin assigns flights to staff.</p></div></div>
     {% endif %}
 </div>
 {% endblock %}

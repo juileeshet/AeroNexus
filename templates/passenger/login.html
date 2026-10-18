@@ -1,4 +1,7 @@
 {% extends "base.html" %}
+{% from "_sky.html" import sky_layers with context %}
+{% block body_class %}auth-page{% endblock %}
+{% block backdrop %}<div class="sky-auth">{{ sky_layers('hero') }}</div>{% endblock %}
 
 {% block title %}Passenger Login{% endblock %}
 

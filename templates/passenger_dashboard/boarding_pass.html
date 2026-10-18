@@ -17,6 +17,17 @@
     </div>
 </div>
 
+{% if f.ops_status == 'CANCELLED' %}
+<div class="alert alert-danger no-print"><strong>This flight was cancelled by the airline.</strong>{{ ' ' ~ f.ops_reason if f.ops_reason }} You have been refunded in full.</div>
+{% elif f.ops_status == 'DELAYED' and not cancelled %}
+<div class="alert alert-warning no-print"><strong>This flight is delayed by {{ f.delay_minutes }} minutes.</strong>{{ ' ' ~ f.ops_reason if f.ops_reason }} The departure and boarding times on this pass are the updated ones.</div>
+{% endif %}
+{% if not cancelled and t.boarded_at %}
+<div class="alert alert-success no-print"><i class="bi bi-check-circle"></i> You boarded at {{ t.boarded_at[11:16] }}. Have a good flight.</div>
+{% elif not cancelled and t.checked_in_at %}
+<div class="alert alert-info no-print"><i class="bi bi-check2-circle"></i> You were checked in at {{ t.checked_in_at[11:16] }}. Head to the gate when boarding opens.</div>
+{% endif %}
+
 {% if not cancelled %}
 <div class="status-banner no-print" id="status-banner" data-dep="{{ dep.strftime('%Y-%m-%dT%H:%M:%S') }}"
      data-opens="{{ opens_min }}" data-close="{{ close_min }}">
@@ -133,7 +144,7 @@
                     <li><span>Gate closes</span><strong class="code">{{ gate_close }}</strong></li>
                     <li><span>Terminal / gate</span><strong class="code">T{{ f.terminal }} / {{ f.gate }}</strong></li>
                 </ul>
-                <p class="small text-secondary mt-3">Terminal and gate update here the moment airport staff change them, so check again before you head to the gate.</p>
+                <p class="small text-secondary mt-3">Terminal and gate update here the moment airport operations change them, so check again before you head to the gate.</p>
                 <div class="d-grid gap-2">
                     {% if not cancelled %}
                     <a href="{{ url_for('airport_guide', t_id=t.t_id) }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-shop"></i> Gate route &amp; shops</a>

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Delay or cancel{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <a href="{{ url_for('flights') }}" class="small text-secondary"><i class="bi bi-arrow-left"></i> Flights &amp; seats</a>
+        <h2 class="mt-1 mb-1">Delay or cancel</h2>
+        <p class="text-secondary mb-3">{{ flight.flight_name }} <span class="code">{{ flight.flight_number }}</span> &middot; {{ flight.source }} to {{ flight.destination }} &middot; departs {{ flight.departure }}
+            &middot; <span class="badge {{ flight.badge }}">{{ flight.status }}</span>
+            {% if flight.status == 'Delayed' %}<span class="small">(+{{ flight.delay_minutes }} min{{ ', ' ~ row.ops_reason if row.ops_reason }})</span>{% endif %}</p>
+
+        {% if flight.status not in ('Scheduled', 'Boarding', 'Delayed') %}
+        <div class="alert alert-secondary">This flight is {{ flight.status|lower }}, so it can no longer be changed.</div>
+        {% else %}
+        <div class="card mb-4">
+            <div class="card-header">Delay this flight</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('flight_ops', f_id=flight.f_id) }}">
+                    <input type="hidden" name="action" value="delay">
+                    <div class="row g-3">
+                        <div class="col-md-4"><label class="form-label">Delay (minutes)</label>
+                            <input type="number" class="form-control" name="minutes" min="5" max="1440" value="30" required></div>
+                        <div class="col-md-8"><label class="form-label">Reason shown to passengers</label>
+                            <input type="text" class="form-control" name="reason" maxlength="200" placeholder="e.g. Late arrival of the aircraft"></div>
+                    </div>
+                    <p class="small text-secondary mt-3">Departure and arrival both move by this much. Boarding passes, boarding time and the tracker update straight away. Delays add up if you delay again.</p>
+                    <button class="btn btn-warning">Apply delay</button>
+                </form>
+                {% if flight.status == 'Delayed' %}
+                <hr>
+                <form method="POST" action="{{ url_for('flight_ops', f_id=flight.f_id) }}">
+                    <input type="hidden" name="action" value="clear">
+                    <button class="btn btn-outline-secondary">Clear delay (back to {{ row.orig_departure }})</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card border-danger">
+            <div class="card-header text-danger">Cancel this flight</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('flight_ops', f_id=flight.f_id) }}">
+                    <input type="hidden" name="action" value="cancel">
+                    <div class="mb-3"><label class="form-label">Reason shown to passengers</label>
+                        <input type="text" class="form-control" name="reason" maxlength="200" placeholder="e.g. Operational reasons"></div>
+                    <p class="mb-2">This will cancel <strong>{{ booked.n }}</strong> confirmed booking{{ '' if booked.n == 1 else 's' }} and refund <strong>&#8377;{{ '{:,.0f}'.format(booked.v) }}</strong> in full. It cannot be undone.</p>
+                    <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="confirm" value="yes" id="confirm-cancel">
+                        <label class="form-check-label" for="confirm-cancel">I understand and want to cancel {{ flight.flight_number }}</label></div>
+                    <button class="btn btn-danger">Cancel flight and refund passengers</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

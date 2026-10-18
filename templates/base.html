@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="no-js">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script>document.documentElement.className = "js";</script>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
     <title>{% block title %}{% endblock %} - {{ APP_NAME }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +15,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
+    {% block backdrop %}{% endblock %}
     {% set ep = request.endpoint %}
     <nav class="navbar navbar-expand-lg navbar-dark no-print">
         <div class="container">
@@ -30,12 +34,13 @@
                         {% if role == 'ADMIN' %}
                             <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'index' and not request.args.get('open') }}" href="{{ url_for('index') }}">Overview</a></li>
                             <li class="nav-item"><a class="nav-link {{ 'active' if ep in ('flights', 'admin_flight_detail') }}" href="{{ url_for('flights') }}">Flights &amp; Seats</a></li>
+                            <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'add_flight' }}" href="{{ url_for('add_flight') }}">Add Flight</a></li>
+                            <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'admin_shops' }}" href="{{ url_for('admin_shops') }}">Airport Shops</a></li>
+                            <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'audit_log' }}" href="{{ url_for('audit_log') }}">Audit Log</a></li>
                             <li class="nav-item"><a class="nav-link {{ 'active' if request.args.get('open') == 'users' }}" href="{{ url_for('index', open='users') }}">Manage Users</a></li>
                         {% elif role == 'STAFF' %}
                             <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'index' }}" href="{{ url_for('index') }}">Dashboard</a></li>
-                            <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'flights' }}" href="{{ url_for('flights') }}">Flights</a></li>
-                            <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'add_flight' }}" href="{{ url_for('add_flight') }}">Add Flight</a></li>
-                            <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'staff_shops' }}" href="{{ url_for('staff_shops') }}">Airport Shops</a></li>
+                            <li class="nav-item"><a class="nav-link {{ 'active' if ep in ('flights', 'staff_flight_detail') }}" href="{{ url_for('flights') }}">My Schedule</a></li>
                         {% else %}
                             <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'index' }}" href="{{ url_for('index') }}">Home</a></li>
                             <li class="nav-item"><a class="nav-link {{ 'active' if ep in ('flights', 'book_flight') }}" href="{{ url_for('flights') }}">Flights</a></li>
@@ -59,6 +64,7 @@
                 <div class="d-flex align-items-center gap-3">
                     <span class="navbar-text"><i class="bi bi-person-circle"></i> {{ session.get('username') }}
                         <span class="role-pill">{{ session.get('role')|lower }}</span></span>
+                    {% if session.get('role') in ('STAFF', 'ADMIN') %}<button type="button" class="btn btn-sm btn-link text-white-50 text-decoration-none" data-bs-toggle="modal" data-bs-target="#changePwModal"><i class="bi bi-key"></i> Password</button>{% endif %}
                     <a class="btn btn-sm btn-outline-light" href="{{ url_for('logout') }}">Logout</a>
                 </div>
                 {% endif %}
@@ -102,8 +108,39 @@
         </div>
     </footer>
 
+    {% if session.get('role') in ('STAFF', 'ADMIN') %}
+    <div class="modal fade no-print" id="changePwModal" tabindex="-1">
+        <div class="modal-dialog"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Change password</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3"><label class="form-label">Current password</label><input type="password" class="form-control" id="pw-current" autocomplete="current-password"></div>
+                <div class="mb-3"><label class="form-label">New password <small class="text-secondary">(min 6 characters)</small></label><input type="password" class="form-control" id="pw-new" minlength="6" autocomplete="new-password"></div>
+                <div class="mb-1"><label class="form-label">Confirm new password</label><input type="password" class="form-control" id="pw-confirm" autocomplete="new-password"></div>
+                <div class="small mt-2" id="pw-msg"></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button type="button" class="btn btn-primary" id="pw-save">Change password</button></div>
+        </div></div>
+    </div>
+    {% endif %}
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% if session.get('role') in ('STAFF', 'ADMIN') %}
+    <script>
+    document.getElementById('pw-save').addEventListener('click', function () {
+        var msg = document.getElementById('pw-msg');
+        var cur = document.getElementById('pw-current').value, nw = document.getElementById('pw-new').value;
+        function say(ok, t) { msg.className = 'small mt-2 ' + (ok ? 'text-success' : 'text-danger'); msg.textContent = t; }
+        if (nw !== document.getElementById('pw-confirm').value) { say(false, 'The two new passwords do not match.'); return; }
+        fetch('/change_password', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({current_password: cur, new_password: nw})})
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                say(d.status === 'success', d.message);
+                if (d.status === 'success') { ['pw-current', 'pw-new', 'pw-confirm'].forEach(function (i) { document.getElementById(i).value = ''; }); }
+            });
+    });
+    </script>
+    {% endif %}
     {% block scripts %}{% endblock %}
 </body>
 </html>

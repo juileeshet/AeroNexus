@@ -1257,3 +1257,188 @@ p {
 .hero-routes .route-chip { background: var(--paper); }
 .seat-first { width: 40px; }
 .card-body:has(.aircraft) { overflow-x: clip; }
+
+/* ============================================================
+   Scenery and motion (all free: pure CSS and SVG, no libraries)
+   ============================================================ */
+
+/* faint route-map pattern behind every page */
+body::before {
+    content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+    background: url('../images/bg-routes.svg') center / cover no-repeat;
+}
+body.auth-page::before { display: none; }
+
+/* Sky scene ---------------------------------------------------------- */
+.sky {
+    position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+    background: linear-gradient(180deg, #0B1A31 0%, #16305A 46%, #2E5E90 72%, #D9AE72 100%);
+}
+.sky-scene-banner { background: linear-gradient(110deg, #0F2036 0%, #1E3A5F 55%, #3A6A9E 100%); }
+.sky-photo { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.sky-tint { position: absolute; inset: 0; }
+.sky-photo + .sky-tint { background: linear-gradient(90deg, rgba(11,26,49,0.86) 0%, rgba(11,26,49,0.55) 60%, rgba(11,26,49,0.35) 100%); }
+.sky-sun {
+    position: absolute; right: -10%; bottom: -38%; width: 62%; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle, rgba(233,184,115,0.62), rgba(233,184,115,0) 64%);
+    animation: sun-glow 9s ease-in-out infinite alternate;
+}
+.sky-scene-banner .sky-sun { bottom: -120%; width: 50%; opacity: 0.7; }
+.sky-stars { position: absolute; inset: 0; width: 100%; height: 62%; }
+.sky-stars circle { fill: #FAF5EA; opacity: 0.2; animation: twinkle 3.6s ease-in-out infinite; }
+
+.cloud { position: absolute; left: 0; fill: #FAF5EA; will-change: transform; animation: cloud-drift linear infinite; }
+.cloud-a { top: 58%; width: 300px; opacity: 0.50; animation-duration: 74s; animation-delay: -18s; }
+.cloud-b { top: 24%; width: 190px; opacity: 0.30; animation-duration: 118s; animation-delay: -64s; }
+.cloud-c { top: 72%; width: 400px; opacity: 0.80; animation-duration: 58s; animation-delay: -30s; }
+.cloud-d { top: 44%; width: 240px; opacity: 0.35; animation-duration: 96s; animation-delay: -6s; }
+.sky-scene-banner .cloud-a { top: 8%; width: 170px; }
+.sky-scene-banner .cloud-b { top: 52%; width: 120px; }
+.sky-scene-banner .cloud-c { top: 66%; width: 230px; opacity: 0.55; }
+
+/* plane + contrail cross the scene on a gentle climb */
+.sky-plane { position: absolute; left: -12%; top: 60%; display: flex; align-items: center; transform: rotate(-9deg); animation: plane-cross 30s linear infinite; }
+.sky-plane i { color: #FAF5EA; font-size: 2rem; transform: rotate(90deg); filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35)); }
+.contrail { display: block; width: 190px; height: 3px; margin-right: -6px; border-radius: 3px; background: linear-gradient(90deg, rgba(250,245,234,0), rgba(250,245,234,0.75)); }
+.sky-scene-banner .sky-plane { animation-duration: 22s; top: 50%; }
+.sky-scene-banner .sky-plane i { font-size: 1.3rem; }
+.sky-scene-banner .contrail { width: 110px; height: 2px; }
+
+@keyframes cloud-drift { from { transform: translateX(-420px); } to { transform: translateX(110vw); } }
+@keyframes plane-cross {
+    0%   { left: -14%; top: 64%; opacity: 0; }
+    6%   { opacity: 1; }
+    94%  { opacity: 1; }
+    100% { left: 108%; top: 16%; opacity: 0; }
+}
+@keyframes sun-glow { from { opacity: 0.65; transform: scale(0.96); } to { opacity: 1; transform: scale(1.06); } }
+@keyframes twinkle { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.95; } }
+
+/* Home page hero ---------------------------------------------------- */
+.sky-hero {
+    position: relative; overflow: hidden; color: #fff; border-radius: 28px; box-shadow: var(--shadow-lg);
+    padding: 4rem 2.75rem; margin-top: 0.5rem;
+}
+.sky-hero-inner { position: relative; z-index: 2; }
+.sky-hero h1 { color: #fff; font-size: clamp(2.1rem, 4.2vw, 3.2rem); line-height: 1.1; margin-bottom: 1.1rem; }
+.sky-hero .lead { color: rgba(255,255,255,0.84); font-size: 1.12rem; max-width: 46ch; margin-bottom: 1.75rem; }
+.sky-hero .hero-eyebrow { background: rgba(255,255,255,0.14); color: #fff; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.2); }
+.sky-hero .hero-routes .route-chip { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); color: rgba(255,255,255,0.9); }
+.sky-hero .route-panel { background: rgba(14,30,54,0.58); border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
+.btn-amber { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.btn-amber:hover, .btn-amber:focus { background: #DBA93C; border-color: #DBA93C; color: var(--ink); }
+.btn-outline-light { border-color: rgba(255,255,255,0.7); }
+@media (max-width: 767.98px) { .sky-hero { padding: 2.4rem 1.4rem; border-radius: 22px; } }
+
+/* Page banners on the inner pages ----------------------------------- */
+.page-banner { position: relative; overflow: hidden; border-radius: var(--radius-lg); color: #fff; margin-bottom: 1.5rem; box-shadow: var(--shadow-md); }
+.page-banner-inner { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; padding: 1.7rem 1.8rem; }
+.page-banner h2 { color: #fff; margin: 0; }
+.page-banner p { color: rgba(255,255,255,0.8); margin: 0.25rem 0 0; }
+.page-banner-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.page-banner .btn-primary { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.page-banner .btn-primary:hover { background: #DBA93C; border-color: #DBA93C; }
+.page-banner .btn-outline-primary { color: #fff; border-color: rgba(255,255,255,0.65); }
+.page-banner .btn-outline-primary:hover { background: #fff; color: var(--ink); border-color: #fff; }
+
+/* Login / register backdrop ----------------------------------------- */
+.sky-auth { position: fixed; inset: 0; z-index: -1; }
+body.auth-page .auth-form { box-shadow: 0 30px 70px rgba(5,15,32,0.45); border: 1px solid rgba(255,255,255,0.5); animation: card-rise 0.7s cubic-bezier(.2,.8,.2,1) both; }
+body.auth-page .auth-icon { animation: pop-in 0.6s 0.25s cubic-bezier(.3,1.6,.5,1) both; }
+body.auth-page .alert { position: relative; z-index: 1; }
+
+/* Navbar ------------------------------------------------------------ */
+.navbar { animation: nav-drop 0.5s ease both; }
+.navbar-nav .nav-link { position: relative; }
+.navbar-nav .nav-link::after {
+    content: ''; position: absolute; left: 0.9rem; right: 0.9rem; bottom: 0.2rem; height: 2px; border-radius: 2px;
+    background: var(--amber); transform: scaleX(0); transform-origin: left; transition: transform 0.25s ease;
+}
+.navbar-nav .nav-link:hover::after, .navbar-nav .nav-link.active::after { transform: scaleX(1); }
+.navbar-nav .dropdown-toggle::after { display: inline-block; position: static; height: auto; background: none; transform: none; }
+
+/* Buttons: light sweep on hover ---------------------------------- */
+.btn-primary, .btn-amber { position: relative; overflow: hidden; }
+.btn-primary::after, .btn-amber::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.28) 50%, transparent 70%);
+    transform: translateX(-120%); transition: transform 0.6s ease;
+}
+.btn-primary:hover::after, .btn-amber:hover::after { transform: translateX(120%); }
+
+/* Reveal on scroll (JS adds data-reveal; content stays visible without JS) */
+.js [data-reveal] {
+    opacity: 0; translate: 0 20px;
+    transition: opacity 0.6s ease, translate 0.6s cubic-bezier(.2,.8,.2,1), box-shadow 0.2s ease, transform 0.2s ease;
+}
+.js [data-reveal].is-visible { opacity: 1; translate: 0 0; transition-delay: var(--reveal-delay, 0ms), var(--reveal-delay, 0ms), 0s, 0s; }
+
+/* Hero entrance */
+.hero-copy > * { animation: rise-in 0.8s cubic-bezier(.2,.8,.2,1) both; }
+.hero-copy > *:nth-child(1) { animation-delay: 0.05s; }
+.hero-copy > *:nth-child(2) { animation-delay: 0.15s; }
+.hero-copy > *:nth-child(3) { animation-delay: 0.25s; }
+.hero-copy > *:nth-child(4) { animation-delay: 0.35s; }
+.hero-copy > *:nth-child(5) { animation-delay: 0.45s; }
+.sky-hero .route-panel { animation: rise-in 0.9s 0.3s cubic-bezier(.2,.8,.2,1) both, float-bob 7s 1.4s ease-in-out infinite; }
+
+/* Flight cards: plane glides along the route on hover */
+.flight-card:hover .route-path .plane-glyph, .ticket-card:hover .route-path .plane-glyph { animation: glide 2.2s ease-in-out infinite alternate; }
+@keyframes glide { from { left: 6%; } to { left: 94%; } }
+.route-line .route-path .plane-glyph { transition: left 0.4s ease; }
+
+/* Live status badges pulse */
+.badge.pulse::before {
+    content: ''; display: inline-block; width: 0.45rem; height: 0.45rem; border-radius: 50%; background: currentColor;
+    margin-right: 0.4rem; vertical-align: 0.05em; animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+/* Cabin: rows fade in front to back; selected seat pops */
+.aircraft .seat-row[style] { animation: row-in 0.5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--r, 0) * 35ms); }
+.aircraft .cockpit i { animation: bob 3.2s ease-in-out infinite; }
+.seat.seat-selected { animation: seat-pop 0.3s cubic-bezier(.3,1.6,.5,1); }
+
+/* Boarding pass prints in; barcode scans in */
+.boarding-pass { transform-origin: top center; animation: pass-in 0.8s cubic-bezier(.2,.8,.2,1) both; }
+.bp-barcode { animation: scan-in 1.1s 0.5s ease-out both; }
+.status-banner.is-open { animation: banner-pulse 2.4s ease-in-out infinite; }
+.gate-card, .gate-big { animation: pop-in 0.6s 0.2s cubic-bezier(.3,1.6,.5,1) both; }
+
+/* Bars grow, alerts slide, shops pop */
+.load-bar > span { animation: bar-grow 1.1s 0.2s cubic-bezier(.2,.8,.2,1) both; }
+.alert { animation: alert-in 0.45s cubic-bezier(.2,.8,.2,1) backwards; }
+.tm-shop { animation: pop-in 0.5s cubic-bezier(.3,1.6,.5,1) both; transform-box: fill-box; transform-origin: center; }
+.tm-shop:nth-of-type(odd) { animation-delay: 0.5s; }
+.tm-shop:nth-of-type(even) { animation-delay: 0.7s; }
+.shop-item { transition: background 0.15s ease, padding 0.15s ease; }
+.shop-item:hover { background: var(--cloud); padding-left: 0.5rem; }
+.route-card-codes i { animation: nudge 2.4s ease-in-out infinite; }
+
+@keyframes rise-in { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes card-rise { from { opacity: 0; transform: translateY(26px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+@keyframes nav-drop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+@keyframes float-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.7); } }
+@keyframes row-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes seat-pop { 0% { transform: scale(1); } 50% { transform: scale(1.22); } 100% { transform: scale(1); } }
+@keyframes pass-in { from { opacity: 0; transform: translateY(-26px) rotateX(16deg) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes scan-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes banner-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(43,98,71,0.35); } 50% { box-shadow: 0 0 0 8px rgba(43,98,71,0); } }
+@keyframes bar-grow { from { width: 0; } }
+@keyframes alert-in { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
+@keyframes nudge { 0%, 100% { transform: rotate(90deg) translateY(0); } 50% { transform: rotate(90deg) translateY(-5px); } }
+
+@media print {
+    [data-reveal] { opacity: 1 !important; translate: none !important; }
+    body::before, .sky { display: none !important; }
+}
+
+/* Keep the navbar (and its dropdown menus) above the hero and page banners */
+.navbar { position: relative; z-index: 1030; }
+
+/* Stat cards stacked in one column should size to their content, not the column */
+.stat-stack .stat-card { height: auto; }
+/* Exit-row labels sit on top of the wing shape */
+.exit-flag { z-index: 2; }

@@ -174,6 +174,13 @@ def init_db():
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, flights)
     
+    # Sample duty roster: the demo staff account works the first six flights
+    c.execute('''CREATE TABLE IF NOT EXISTS staff_assignments
+                (staff_username TEXT NOT NULL, f_id INTEGER NOT NULL,
+                 PRIMARY KEY (staff_username, f_id))''')
+    c.execute('''INSERT OR IGNORE INTO staff_assignments (staff_username, f_id)
+                 SELECT 'staff', f_id FROM flights ORDER BY departure LIMIT 6''')
+
     # Commit changes and close connection
     conn.commit()
     conn.close()
@@ -189,7 +196,7 @@ def reset_db():
     c.execute("DROP TABLE IF EXISTS employees")
     c.execute("DROP TABLE IF EXISTS admin")
     c.execute("DROP TABLE IF EXISTS passengers")
-    for table in ("airport_shops", "airports", "meals", "addons"):
+    for table in ("airport_shops", "airports", "meals", "addons", "staff_assignments", "audit_log"):
         c.execute(f"DROP TABLE IF EXISTS {table}")
 
     # Commit changes and close connection

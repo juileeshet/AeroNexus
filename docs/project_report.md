@@ -14,11 +14,19 @@ The Flight Booking System is a web-based application built using Flask that prov
 
 ### User Roles
 1. **Admin**
+   - Add, edit and delete flights, terminals and gates
+   - Manage airport shops
+   - Delay or cancel flights (cancelling refunds all bookings in full)
+   - Assign staff to flights
+   - Audit log of changes
    - User management
    - System statistics
    - Database backup/restore
-2. **Staff**
-   - Flight management
+2. **Staff** (read-only)
+   - View only the flights assigned to them by an admin
+   - View each assigned flight's passengers and who booked them
+   - Check passengers in and board them
+   - Download passenger manifests
    - Flight tracking
 3. **Passengers**
    - Flight booking

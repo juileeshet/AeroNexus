@@ -31,14 +31,22 @@ The Flight Booking System is a web-based application built using Flask that prov
 \subsection{User Roles}
 \subsubsection{Admin}
 \begin{itemize}
+    \item Add, edit and delete flights, terminals and gates
+    \item Manage airport shops
+    \item Delay or cancel flights (cancelling refunds all bookings in full)
+    \item Assign staff to flights
+    \item Audit log of changes
     \item User management
     \item System statistics
     \item Database backup/restore
 \end{itemize}
 
-\subsubsection{Staff}
+\subsubsection{Staff (read-only)}
 \begin{itemize}
-    \item Flight management
+    \item View only the flights assigned to them by an admin
+    \item View each assigned flight's passengers and who booked them
+    \item Check passengers in and board them
+    \item Download passenger manifests
     \item Flight tracking
 \end{itemize}
 
